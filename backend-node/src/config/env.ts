@@ -44,7 +44,7 @@ function lanIpv4Addresses(): string[] {
   for (const entries of Object.values(os.networkInterfaces())) {
     for (const entry of entries || []) {
       const family = entry.family;
-      const isV4 = family === "IPv4" || family === 4;
+      const isV4 = family === "IPv4";
       if (isV4 && !entry.internal) {
         addresses.push(entry.address);
       }
