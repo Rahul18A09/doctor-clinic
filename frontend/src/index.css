@@ -57,6 +57,14 @@ body {
   width: 0;
 }
 
+.bottom-nav-scroll {
+  -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+}
+
 .table-scroll {
   -webkit-overflow-scrolling: touch;
   max-width: 100%;

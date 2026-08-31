@@ -28,7 +28,7 @@ export function BottomNav({ items }) {
 
   if (!items?.length) return null
 
-  const wrapItems = items.length > 6
+  const scrollable = items.length > 6
 
   return (
     <nav
@@ -37,8 +37,8 @@ export function BottomNav({ items }) {
     >
       <div
         className={
-          wrapItems
-            ? 'grid grid-cols-4'
+          scrollable
+            ? 'bottom-nav-scroll hide-scrollbar flex flex-nowrap items-stretch'
             : 'flex items-stretch'
         }
       >
@@ -49,8 +49,10 @@ export function BottomNav({ items }) {
             <NavLink
               key={item.to}
               to={item.to}
-              className={`flex min-w-0 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] font-medium leading-tight ${
-                wrapItems ? '' : 'flex-1'
+              className={`flex flex-col items-center justify-center gap-0.5 px-1 py-2 text-[10px] font-medium leading-tight ${
+                scrollable
+                  ? 'w-[4.75rem] shrink-0 grow-0'
+                  : 'min-w-0 flex-1'
               } ${active ? 'text-primary-600' : 'text-muted'}`}
             >
               <span className="relative flex h-6 w-6 items-center justify-center">
@@ -61,9 +63,7 @@ export function BottomNav({ items }) {
                   </span>
                 )}
               </span>
-              <span className="w-full px-0.5 text-center leading-tight [overflow-wrap:anywhere]">
-                {item.label}
-              </span>
+              <span className="w-full truncate text-center">{item.label}</span>
             </NavLink>
           )
         })}
