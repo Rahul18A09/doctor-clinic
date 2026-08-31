@@ -43,8 +43,8 @@ function loadHttpsConfig(): NonNullable<ServerOptions['https']> {
 }
 
 export default defineConfig(({ command }) => {
-  // Local development/preview needs HTTPS certificates.
-  // Vercel production builds do not.
+  // HTTPS certificates are required only for local development/preview.
+  // Vercel production builds do not need local certificates.
   const isBuild = command === 'build'
 
   const https = isBuild ? undefined : loadHttpsConfig()
