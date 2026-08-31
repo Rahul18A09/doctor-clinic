@@ -1,0 +1,7 @@
+export { LoginPage } from './LoginPage'
+export { NotFoundPage } from './NotFoundPage'
+export { QueuePage } from './QueuePage'
+export { AdminDashboardPage } from './admin/AdminDashboardPage'
+export { ReceptionistFormPage } from './admin/ReceptionistFormPage'
+export { ReceptionistListPage } from './admin/ReceptionistListPage'
+export { ReceptionistDashboardPage } from './reception/ReceptionistDashboardPage'

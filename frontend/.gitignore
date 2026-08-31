@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+dist/
+dist-ssr/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+
+# Local mkcert TLS material — never commit private keys
+certs/*.pem
+*.pem
+*-key.pem
+192.168.1.90+1.pem
+192.168.1.90+1-key.pem

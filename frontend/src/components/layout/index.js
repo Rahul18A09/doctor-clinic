@@ -1,0 +1,5 @@
+export { AdminLayout } from './AdminLayout'
+export { ReceptionistLayout } from './ReceptionistLayout'
+export { Footer } from './Footer'
+export { Header } from './Header'
+export { Layout } from './Layout'
