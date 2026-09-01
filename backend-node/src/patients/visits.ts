@@ -229,3 +229,16 @@ export async function resolveCreateIdentity(input: {
 export function newPatientObjectId(): Types.ObjectId {
   return new Types.ObjectId();
 }
+
+/** Visit document by `_id`, or the latest visit sharing that permanent `patient_id`. */
+export async function findVisitByPublicId(pk: string): Promise<PatientDocument | null> {
+  const id = pk.trim();
+  if (!isMongoObjectId(id)) {
+    return null;
+  }
+  const byId = await Patient.findById(id).exec();
+  if (byId) {
+    return byId;
+  }
+  return Patient.findOne({ patient_id: id }).sort({ created_at: -1 }).exec();
+}

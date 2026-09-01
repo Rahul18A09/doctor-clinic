@@ -32,6 +32,7 @@ import {
 import {
   CLINIC_ROLES,
   RECEPTIONIST_ROLES,
+  notifyIfEnabled,
   notifyQueueWaiting,
   notifyStaffSafe,
   resolveQueueNotifications,
@@ -39,6 +40,7 @@ import {
 import { buildDoctorListFilter, doctorListSort } from "../patients/doctorFilters";
 import { serializePatient } from "../patients/serializePatient";
 import { getPatientStats } from "../patients/stats";
+import { findVisitByPublicId } from "../patients/visits";
 
 const NOT_FOUND = "Patient not found.";
 const START_GUARD =
@@ -59,7 +61,7 @@ async function loadPatientOr404(
     notFoundResponse(res, NOT_FOUND);
     return null;
   }
-  const patient = await Patient.findById(pk).exec();
+  const patient = await findVisitByPublicId(pk);
   if (!patient) {
     notFoundResponse(res, NOT_FOUND);
     return null;
@@ -358,7 +360,7 @@ const completeConsultation: RequestHandler = async (
   const completed = patientNotificationSubject(updated);
   if (completed) {
     await resolveQueueNotifications(String(updated._id));
-    await notifyStaffSafe({
+    await notifyIfEnabled("consultation_completed", {
       type: NotificationType.CONSULTATION,
       ...consultationCompletedMessage(completed.name, completed.token, completed.visitNumber, now),
       related_id: `cc:${String(updated._id)}`,

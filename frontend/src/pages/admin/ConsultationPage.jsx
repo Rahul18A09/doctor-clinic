@@ -86,9 +86,10 @@ export function ConsultationPage() {
     },
   })
 
-  const loadPatient = async () => {
+  const loadPatient = async ({ signal, cancelled } = {}) => {
     try {
-      const { data: res } = await doctorConsultationService.get(id)
+      const { data: res } = await doctorConsultationService.get(id, signal ? { signal } : undefined)
+      if (cancelled?.()) return
       const p = res.data.patient
       setPatient(p)
       reset({
@@ -102,15 +103,28 @@ export function ConsultationPage() {
         prescription: p.prescription || '',
       })
     } catch (err) {
-      showError(err.response?.data?.message || err.message)
-      navigate(consultationsPath(CONSULTATION_TABS.WAITING))
+      if (cancelled?.() || err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return
+      const missing = err.response?.status === 404
+      showError(missing ? 'This visit is no longer available.' : err.response?.data?.message || err.message)
+      navigate(consultationsPath(CONSULTATION_TABS.WAITING), { replace: true })
     } finally {
-      setLoading(false)
+      if (!cancelled?.()) setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadPatient()
+    const controller = new AbortController()
+    let cancelled = false
+    setLoading(true)
+    setPatient(null)
+    loadPatient({
+      signal: controller.signal,
+      cancelled: () => cancelled,
+    })
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 

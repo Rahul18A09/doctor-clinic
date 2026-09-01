@@ -490,6 +490,43 @@ describe("patient API", { timeout: 120_000 }, () => {
     });
   });
 
+  it("GET /api/v1/patients/<pk>/ falls back to patient_id when the visit _id is gone", async () => {
+    const first = await Patient.create({
+      token_number: `n${Date.now().toString(36)}`.slice(0, 20),
+      visit_number: 1,
+      patient_name: `${stamp} identity-first`,
+      mobile: `${mobileA.slice(0, 9)}7`,
+      age: 33,
+      gender: "FEMALE",
+      chief_complaint: "Follow up",
+      status: "COMPLETED",
+      created_by: adminId,
+    });
+    createdPatientIds.push(String(first._id));
+    const later = await Patient.create({
+      token_number: `n${(Date.now() + 1).toString(36)}`.slice(0, 20),
+      visit_number: 2,
+      patient_id: String(first._id),
+      patient_name: `${stamp} identity-later`,
+      mobile: `${mobileA.slice(0, 9)}7`,
+      age: 33,
+      gender: "FEMALE",
+      chief_complaint: "Follow up",
+      status: "WAITING",
+      created_by: adminId,
+    });
+    createdPatientIds.push(String(later._id));
+    await Patient.deleteOne({ _id: first._id });
+
+    const res = await request(app)
+      .get(`/api/v1/patients/${String(first._id)}/`)
+      .set(deskAuth());
+    assert.equal(res.status, 200);
+    assert.equal(res.body.data.patient.id, String(later._id));
+    assert.equal(res.body.data.patient.patient_id, String(first._id));
+    assert.equal(res.body.data.patient.visit_number, 2);
+  });
+
   it("PUT /api/v1/patients/<pk>/ is partial; receptionist cannot edit after consultation starts", async () => {
     const updated = await request(app)
       .put(`/api/v1/patients/${waitingId}/`)

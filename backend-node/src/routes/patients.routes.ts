@@ -44,6 +44,7 @@ import { getPatientStats } from "../patients/stats";
 import { formatTokenForDisplay } from "../patients/tokens";
 import {
   classifyLookupQuery,
+  findVisitByPublicId,
   generateTokenNumber,
   isDuplicateKeyError,
   maskMobile,
@@ -273,8 +274,14 @@ const createPatient: RequestHandler = async (req: Request, res: Response): Promi
 };
 
 const getPatient: RequestHandler = async (req: Request, res: Response): Promise<void> => {
-  const patient = await findPatientOr404(String(req.params["pk"] ?? ""), res);
+  const pk = String(req.params["pk"] ?? "");
+  if (!isMongoObjectId(pk)) {
+    notFoundResponse(res, NOT_FOUND);
+    return;
+  }
+  const patient = await findVisitByPublicId(pk);
   if (!patient) {
+    notFoundResponse(res, NOT_FOUND);
     return;
   }
   successResponse(res, {

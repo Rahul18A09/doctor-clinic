@@ -69,6 +69,10 @@ function RowActionsMenu({ isOpen, isLoading, onToggle, onClose, actions }) {
 
     const updatePosition = () => {
       const rect = buttonRef.current.getBoundingClientRect()
+      if (rect.width === 0 || rect.height === 0) {
+        setMenuStyle(null)
+        return
+      }
       const menuWidth = 208
       const menuHeight = actions.length * 44 + 8
       const left = Math.min(

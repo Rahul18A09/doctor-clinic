@@ -9,7 +9,7 @@ export const patientService = {
     }
     return api.get('/patients/lookup/', { params: query })
   },
-  get: (id) => api.get(`/patients/${id}/`),
+  get: (id, config) => api.get(`/patients/${id}/`, config),
   create: (data) => api.post('/patients/', data),
   update: (id, data) => api.put(`/patients/${id}/`, data),
   delete: (id) => api.delete(`/patients/${id}/`),

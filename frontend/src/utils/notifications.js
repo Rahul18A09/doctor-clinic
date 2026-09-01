@@ -1,4 +1,4 @@
-import { ROLES } from '@/utils/constants'
+import { ROLES, ROUTES } from '@/utils/constants'
 
 export const NOTIFICATION_TYPES = {
   PATIENT: 'patient',
@@ -35,9 +35,9 @@ export const RECEPTIONIST_NOTIFICATION_FILTER_OPTIONS = [
 ]
 
 export const DOCTOR_NOTIFICATION_FILTER_OPTIONS = [
-  { value: 'patient', label: 'Patient' },
   { value: 'queue', label: 'Queue' },
   { value: 'consultation', label: 'Consultation' },
+  { value: 'staff', label: 'Staff' },
 ]
 
 export function notificationFilterOptionsForRole(role) {
@@ -48,6 +48,40 @@ export function notificationFilterOptionsForRole(role) {
 export function notificationTypeQueryValue(filterValue) {
   if (!filterValue) return undefined
   return filterValue
+}
+
+export function relatedPatientIdFromNotification(item) {
+  const related = String(item?.related_id || '').trim()
+  const prefixed = related.match(/^(?:pr|q|cs|cc|cx):([a-f0-9]{24})(?:$|:)/i)
+  if (prefixed) return prefixed[1].toLowerCase()
+  if (/^[a-f0-9]{24}$/i.test(related)) return related.toLowerCase()
+  return ''
+}
+
+/** In-app destination for a notification, or '' if there is none. */
+export function notificationTargetPath(item, role) {
+  const type = String(item?.type || '')
+  const isAdmin = role === ROLES.ADMIN
+  const patientId = relatedPatientIdFromNotification(item)
+
+  if (type === 'staff' || type === 'receptionist') {
+    return isAdmin ? ROUTES.ADMIN_RECEPTIONISTS : ''
+  }
+
+  if (!patientId) return ''
+
+  if (isAdmin) {
+    if (type === 'patient') {
+      return ROUTES.ADMIN_PATIENT_DETAIL.replace(':id', patientId)
+    }
+    return ROUTES.ADMIN_CONSULTATION.replace(':id', patientId)
+  }
+
+  if (type === 'patient' || type === 'consultation') {
+    return ROUTES.RECEPTION_PATIENT_DETAIL.replace(':id', patientId)
+  }
+
+  return ''
 }
 
 export function formatRelativeTime(iso) {

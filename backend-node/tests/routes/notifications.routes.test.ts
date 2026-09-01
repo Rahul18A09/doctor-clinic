@@ -615,6 +615,89 @@ describe("notification API", { timeout: 120_000 }, () => {
     assert.ok(consultList.body.data.results.some((item: { token_number?: string }) => item.token_number === token));
   });
 
+  it("skips completed inbox rows when consultation_completed is disabled", async () => {
+    await Settings.findOneAndUpdate(
+      { key: SETTINGS_KEY },
+      {
+        $set: {
+          ...DEFAULT_SETTINGS,
+          notifications: {
+            patient_registration: true,
+            token_generated: true,
+            token_approaching: true,
+            consultation_completed: false,
+          },
+        },
+      },
+      { upsert: true },
+    );
+
+    const created = await request(app)
+      .post("/api/v1/patients/")
+      .set("Authorization", `Bearer ${receptionistToken}`)
+      .send({
+        patient_name: "Nisha Kapoor",
+        mobile: `7${String(Date.now()).slice(-9)}`,
+        age: 36,
+        gender: "FEMALE",
+        chief_complaint: "Fever",
+      });
+    assert.equal(created.status, 201);
+    const patientId = created.body.data.patient.id as string;
+    createdPatientIds.push(patientId);
+
+    const beforeDeskConsult = await Notification.countDocuments({
+      user_id: receptionistId,
+      type: NotificationType.CONSULTATION,
+    }).exec();
+    const beforeAdminConsult = await Notification.countDocuments({
+      user_id: adminId,
+      type: NotificationType.CONSULTATION,
+    }).exec();
+
+    const started = await request(app)
+      .post(`/api/v1/doctor/patients/${patientId}/start/`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    assert.equal(started.status, 200);
+
+    const completed = await request(app)
+      .post(`/api/v1/doctor/patients/${patientId}/complete/`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    assert.equal(completed.status, 200);
+
+    const deskConsult = await Notification.find({
+      user_id: receptionistId,
+      type: NotificationType.CONSULTATION,
+    })
+      .sort({ created_at: -1 })
+      .exec();
+    assert.equal(deskConsult.length, beforeDeskConsult + 1);
+    assert.equal(deskConsult[0]?.title, "Consultation started");
+    assert.equal(deskConsult[0]?.patient_name, "Nisha Kapoor");
+    assert.equal(
+      await Notification.countDocuments({
+        user_id: receptionistId,
+        type: NotificationType.CONSULTATION,
+        title: "Consultation completed",
+        patient_name: "Nisha Kapoor",
+      }).exec(),
+      0,
+    );
+    assert.equal(
+      await Notification.countDocuments({
+        user_id: adminId,
+        type: NotificationType.CONSULTATION,
+        title: "Consultation completed",
+        patient_name: "Nisha Kapoor",
+      }).exec(),
+      0,
+    );
+    assert.equal(
+      await Notification.countDocuments({ user_id: adminId, type: NotificationType.CONSULTATION }).exec(),
+      beforeAdminConsult,
+    );
+  });
+
   it("notifies consultation cancelled and recreates the waiting queue notification", async () => {
     await Settings.findOneAndUpdate(
       { key: SETTINGS_KEY },

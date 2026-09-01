@@ -18,6 +18,10 @@ function formatDate(iso) {
   })
 }
 
+function isRequestCanceled(err) {
+  return err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError' || err?.name === 'AbortError'
+}
+
 function DetailRow({ label, value }) {
   return (
     <div className="py-3 sm:grid sm:grid-cols-3 sm:gap-4">
@@ -44,18 +48,31 @@ export function PatientDetailPage({ basePath, canEdit = false, isAdmin = false }
       : patient.is_editable_by_receptionist !== false)
 
   useEffect(() => {
+    if (!id) return undefined
+    const controller = new AbortController()
+    let cancelled = false
+    setLoading(true)
+    setPatient(null)
+
     async function load() {
       try {
-        const { data: res } = await patientService.get(id)
+        const { data: res } = await patientService.get(id, { signal: controller.signal })
+        if (cancelled) return
         setPatient(res.data.patient)
       } catch (err) {
-        showError(err.response?.data?.message || err.message)
-        navigate(listPath)
+        if (cancelled || isRequestCanceled(err)) return
+        const missing = err.response?.status === 404
+        showError(missing ? 'This visit is no longer available.' : err.response?.data?.message || err.message)
+        navigate(listPath, { replace: true })
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     load()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [id, listPath, navigate, showError])
 
   if (loading) {

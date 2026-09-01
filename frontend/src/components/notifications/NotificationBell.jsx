@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useNotifications } from '@/hooks/useNotifications'
-import { formatRelativeTime } from '@/utils/notifications'
+import { formatRelativeTime, notificationTargetPath } from '@/utils/notifications'
 import { ROLES, ROUTES } from '@/utils/constants'
 import { NotificationTypeIcon, notificationSubjectText } from './NotificationTypeIcon'
 
@@ -13,6 +13,7 @@ function unreadLabel(count) {
 
 export function NotificationBell() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const { unreadCount, recent, loading, markRead, markAllRead, deleteNotification, fetchRecent } =
     useNotifications()
   const [open, setOpen] = useState(false)
@@ -61,6 +62,20 @@ export function NotificationBell() {
     } finally {
       setActionLoading(null)
     }
+  }
+
+  const handleOpen = async (item) => {
+    const path = notificationTargetPath(item, user?.role)
+    if (!path) return
+    if (!item.is_read) {
+      try {
+        await markRead(item.id)
+      } catch {
+        // Still navigate even if mark-read fails.
+      }
+    }
+    setOpen(false)
+    navigate(path)
   }
 
   return (
@@ -124,9 +139,13 @@ export function NotificationBell() {
                 <ul className="divide-y divide-border">
                   {recent.map((item) => {
                     const subject = notificationSubjectText(item)
+                    const path = notificationTargetPath(item, user?.role)
                     return (
                       <li key={item.id} className={item.is_read ? 'bg-card' : 'bg-primary-50/70'}>
-                        <div className="flex gap-3 px-3 py-3 sm:px-4">
+                        <div
+                          className={`flex gap-3 px-3 py-3 sm:px-4 ${path ? 'cursor-pointer' : ''}`}
+                          onClick={path ? () => handleOpen(item) : undefined}
+                        >
                           <NotificationTypeIcon type={item.type} />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-2">

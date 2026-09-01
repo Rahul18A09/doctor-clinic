@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { notificationService } from '@/api/notifications'
 import { Badge, Button, ConfirmDialog, ListStatus, RefreshButton, Select } from '@/components/ui'
 import { DeleteIconButton } from '@/components/patients/ViewIconButton'
@@ -12,6 +13,7 @@ import { useNotifications } from '@/hooks/useNotifications'
 import {
   formatNotificationTime,
   notificationFilterOptionsForRole,
+  notificationTargetPath,
   notificationTypeQueryValue,
   NOTIFICATION_TYPE_BADGE,
   NOTIFICATION_TYPE_LABELS,
@@ -22,6 +24,7 @@ const PAGE_SIZE = 10
 export function NotificationsPage() {
   const { showError, showSuccess } = useToast()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const { refresh, markRead, markAllRead, deleteNotification, unreadCount } = useNotifications()
   const skipUnreadListRefetch = useRef(true)
   const typeOptions = notificationFilterOptionsForRole(user?.role)
@@ -115,6 +118,19 @@ export function NotificationsPage() {
     } finally {
       setActionLoading(null)
     }
+  }
+
+  const handleOpen = async (item) => {
+    const path = notificationTargetPath(item, user?.role)
+    if (!path) return
+    if (!item.is_read) {
+      try {
+        await markRead(item.id)
+      } catch (err) {
+        showError(err.response?.data?.message || err.message)
+      }
+    }
+    navigate(path)
   }
 
   const handleMarkAll = async () => {
@@ -213,12 +229,14 @@ export function NotificationsPage() {
             <div className="space-y-3 px-4 py-4 lg:hidden sm:px-6">
               {items.map((item, index) => {
                 const typeVisual = getNotificationTypeVisual(item.type, item.title)
+                const path = notificationTargetPath(item, user?.role)
                 return (
                   <div
                     key={item.id}
                     className={`rounded-2xl border border-border p-4 ${
                       item.is_read ? 'bg-card' : 'bg-primary-50/40'
-                    }`}
+                    } ${path ? 'cursor-pointer' : ''}`}
+                    onClick={path ? () => handleOpen(item) : undefined}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-3">
@@ -247,7 +265,10 @@ export function NotificationsPage() {
                         <dd className="text-right text-foreground">{formatNotificationTime(item.created_at)}</dd>
                       </div>
                     </dl>
-                    <div className="mt-3 flex flex-wrap items-center justify-end gap-1 border-t border-border pt-3">
+                    <div
+                      className="mt-3 flex flex-wrap items-center justify-end gap-1 border-t border-border pt-3"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       {!item.is_read && (
                         <Button
                           variant="ghost"
@@ -285,12 +306,14 @@ export function NotificationsPage() {
                 <tbody className="divide-y divide-border">
                   {items.map((item, index) => {
                     const typeVisual = getNotificationTypeVisual(item.type, item.title)
+                    const path = notificationTargetPath(item, user?.role)
                     return (
                       <tr
                         key={item.id}
                         className={`transition-colors hover:bg-surface/80 ${
                           item.is_read ? 'bg-card' : 'bg-primary-50/40'
-                        }`}
+                        } ${path ? 'cursor-pointer' : ''}`}
+                        onClick={path ? () => handleOpen(item) : undefined}
                       >
                         <td className="whitespace-nowrap px-4 py-4 text-muted sm:px-5">{rowNumber(index)}</td>
                         <td className="px-4 py-4 sm:px-5">
@@ -317,7 +340,7 @@ export function NotificationsPage() {
                           {formatNotificationTime(item.created_at)}
                         </td>
                         <td className="whitespace-nowrap px-4 py-4 sm:px-5">
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
                             {!item.is_read && (
                               <Button
                                 variant="ghost"

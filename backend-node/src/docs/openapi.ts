@@ -1081,7 +1081,7 @@ export const openApiDocument: JsonObject = {
         summary: "Complete consultation",
         operationId: "completeConsultation",
         description:
-          "WAITING or IN_CONSULTATION → COMPLETED. Direct complete from WAITING sets start and completion timestamps together. Complete from IN_CONSULTATION keeps existing start/`consulted_by*`. Does not set CANCELLED. Always creates `consultation` notifications for admin and receptionist (completed) and removes any active waiting `queue` notification.",
+          "WAITING or IN_CONSULTATION → COMPLETED. Direct complete from WAITING sets start and completion timestamps together. Complete from IN_CONSULTATION keeps existing start/`consulted_by*`. Does not set CANCELLED. When `consultation_completed` is enabled, creates `consultation` notifications for admin and receptionist. Always removes any active waiting `queue` notification.",
         responses: {
           "200": {
             description: "Treatment completed successfully.",
