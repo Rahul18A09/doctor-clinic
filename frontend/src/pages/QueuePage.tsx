@@ -11,8 +11,8 @@ import { formatTokenForUi } from '@/utils/formatToken'
 const REFRESH_INTERVAL_MS = 5000
 
 const CONTACT_NUMBERS = [
-  { label: 'સંપર્ક નંબર 1', phone: '+91 98765 43210', color: 'green' as const },
-  { label: 'સંપર્ક નંબર 2', phone: '+91 96385 67890', color: 'blue' as const },
+  { label: 'સંપર્ક નંબર 1', phone: '7984443901', color: 'green' as const },
+  { label: 'સંપર્ક નંબર 2', phone: '8200863163', color: 'blue' as const },
 ]
 
 const EMPTY_STATUS: PublicQueueStatus = {
