@@ -28,12 +28,18 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
     </svg>
   ),
+  beds: (
+    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 18V9a2 2 0 012-2h4a3 3 0 016 0h4a2 2 0 012 2v9M3 14h18M7 18v2M17 18v2" />
+    </svg>
+  ),
 }
 
 const receptionNavItems = [
   { label: 'Dashboard', to: ROUTES.RECEPTION_DASHBOARD, icon: icons.dashboard, end: true },
   { label: 'Add Patient', to: ROUTES.RECEPTION_PATIENTS_ADD, icon: icons.add, end: true },
   { label: 'Patient List', to: `${ROUTES.RECEPTION_PATIENTS}?filter=today`, icon: icons.list, end: true },
+  { label: 'Bed Availability', to: ROUTES.RECEPTION_BEDS, icon: icons.beds, end: true },
   { label: 'Notifications', to: ROUTES.RECEPTION_NOTIFICATIONS, icon: icons.notifications, end: true },
   { label: 'Profile', to: ROUTES.RECEPTION_PROFILE, icon: icons.profile, end: true },
 ]
@@ -47,6 +53,7 @@ const receptionMobileNavItems = [
     icon: icons.list,
     match: 'patientsList',
   },
+  { label: 'Beds', to: ROUTES.RECEPTION_BEDS, icon: icons.beds, end: true },
   {
     label: 'Notifications',
     to: ROUTES.RECEPTION_NOTIFICATIONS,

@@ -55,6 +55,14 @@ const ICONS = {
       d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
     />
   ),
+  bed: (
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.8}
+      d="M3 18V9a2 2 0 012-2h4a3 3 0 016 0h4a2 2 0 012 2v9M3 14h18M7 18v2M17 18v2"
+    />
+  ),
 }
 
 const TONES = {
@@ -76,6 +84,12 @@ export function getNotificationTypeVisual(type, title) {
   }
   if (lower === 'returning patient' || lower === 'returning patient waiting') {
     return { icon: ICONS.returning, tone: 'bg-emerald-100 text-emerald-700', label }
+  }
+  if (lower === 'bed assigned' || lower === 'bed released' || lower === 'bed marked for maintenance') {
+    return { icon: ICONS.bed, tone: 'bg-sky-100 text-sky-700', label }
+  }
+  if (lower === 'admission required') {
+    return { icon: ICONS.bed, tone: 'bg-amber-100 text-amber-700', label }
   }
 
   return {

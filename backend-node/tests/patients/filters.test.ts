@@ -30,6 +30,19 @@ describe("buildPatientListFilter", () => {
     });
   });
 
+  it("maps filter=admission_required and care_type/admission_status query params", async () => {
+    assert.deepEqual(buildPatientListFilter({ filter: "admission_required" }, now), {
+      admission_status: "Admission Required",
+    });
+    assert.deepEqual(buildPatientListFilter({ care_type: "Inpatient" }, now), {
+      care_type: "Inpatient",
+    });
+    assert.deepEqual(buildPatientListFilter({ admission_status: "Admitted" }, now), {
+      admission_status: "Admitted",
+    });
+    assert.deepEqual(buildPatientListFilter({ care_type: "Walk-in" }, now), {});
+  });
+
   it("applies a valid date=YYYY-MM-DD as a UTC day on created_at", () => {
     const filter = buildPatientListFilter({ date: "2026-08-01" }, now) as {
       created_at: { $gte: Date; $lt: Date };

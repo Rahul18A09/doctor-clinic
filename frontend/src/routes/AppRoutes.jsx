@@ -20,6 +20,7 @@ import {
   ReceptionPatientDetailPage,
 } from '@/pages/patients/PatientDetailPage'
 import { PatientFormPage, AdminPatientFormPage, ReceptionPatientFormPage } from '@/pages/patients/PatientFormPage'
+import { AdminBedsPage, ReceptionBedsPage } from '@/pages/beds/BedManagementPage'
 import { ReceptionistDashboardPage } from '@/pages/reception/ReceptionistDashboardPage'
 import { ReceptionistProfilePage } from '@/pages/reception/ReceptionistProfilePage'
 import { NotificationsPage } from '@/pages/notifications/NotificationsPage'
@@ -54,6 +55,7 @@ export function AppRoutes() {
           <Route path="/admin/patients/new" element={<AdminPatientFormPage />} />
           <Route path="/admin/patients/:id" element={<AdminPatientDetailPage />} />
           <Route path="/admin/patients/:id/edit" element={<AdminPatientFormPage />} />
+          <Route path={ROUTES.ADMIN_BEDS} element={<AdminBedsPage />} />
           <Route path="/admin/consultations" element={<ConsultationQueuePage />} />
           <Route path="/admin/consultations/:id" element={<ConsultationPage />} />
           <Route
@@ -74,6 +76,7 @@ export function AppRoutes() {
           <Route path="/reception/patients/new" element={<ReceptionPatientFormPage />} />
           <Route path="/reception/patients/:id" element={<ReceptionPatientDetailPage />} />
           <Route path="/reception/patients/:id/edit" element={<ReceptionPatientFormPage />} />
+          <Route path={ROUTES.RECEPTION_BEDS} element={<ReceptionBedsPage />} />
           <Route path="/reception/add-patient" element={<ReceptionPatientFormPage />} />
           <Route path={ROUTES.RECEPTION_PROFILE} element={<ReceptionistProfilePage />} />
           <Route path={ROUTES.RECEPTION_NOTIFICATIONS} element={<NotificationsPage />} />

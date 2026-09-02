@@ -9,6 +9,7 @@ export function getApiErrorMessage(error, fallback = 'Something went wrong.') {
   if (typeof data === 'string') return data
 
   if (data.message) return data.message
+  if (typeof data.detail === 'string' && data.detail) return data.detail
 
   if (data.errors) {
     const { errors } = data

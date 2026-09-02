@@ -36,6 +36,10 @@ export interface IPatient {
   consulted_by_name?: string;
   updated_by?: string;
   updated_by_name?: string;
+  care_type?: string;
+  admission_status?: string;
+  admitted_at?: Date | null;
+  discharged_at?: Date | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -75,6 +79,10 @@ const patientSchema = new Schema<IPatient>(
     consulted_by_name: { type: String },
     updated_by: { type: String },
     updated_by_name: { type: String },
+    care_type: { type: String, maxlength: 20 },
+    admission_status: { type: String, maxlength: 40 },
+    admitted_at: { type: Date },
+    discharged_at: { type: Date },
     created_at: { type: Date, default: Date.now },
     updated_at: { type: Date, default: Date.now },
   },
@@ -96,6 +104,8 @@ patientSchema.index({ mobile: 1 });
 patientSchema.index({ patient_id: 1 });
 patientSchema.index({ status: 1 });
 patientSchema.index({ created_at: 1 });
+patientSchema.index({ care_type: 1 });
+patientSchema.index({ admission_status: 1 });
 
 patientSchema.virtual("is_editable_by_receptionist").get(function (
   this: PatientDocument,

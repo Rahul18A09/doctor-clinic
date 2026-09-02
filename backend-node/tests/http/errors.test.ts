@@ -59,5 +59,17 @@ describe("PermissionMessage", () => {
       "You do not have permission to update patients.",
     );
     assert.equal(PermissionMessage.deletePatients, "Only administrators can delete patients.");
+    assert.equal(
+      PermissionMessage.viewBeds,
+      "You do not have permission to view rooms and beds.",
+    );
+    assert.equal(
+      PermissionMessage.assignBeds,
+      "You do not have permission to assign or release beds.",
+    );
+    assert.equal(
+      PermissionMessage.manageBeds,
+      "Only administrators can manage rooms and beds.",
+    );
   });
 });

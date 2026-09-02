@@ -52,10 +52,16 @@ export function notificationTypeQueryValue(filterValue) {
 
 export function relatedPatientIdFromNotification(item) {
   const related = String(item?.related_id || '').trim()
-  const prefixed = related.match(/^(?:pr|q|cs|cc|cx):([a-f0-9]{24})(?:$|:)/i)
+  const prefixed = related.match(/^(?:pr|q|cs|cc|cx|ba|br|ar):([a-f0-9]{24})(?:$|:)/i)
   if (prefixed) return prefixed[1].toLowerCase()
   if (/^[a-f0-9]{24}$/i.test(related)) return related.toLowerCase()
   return ''
+}
+
+function isBedMaintenanceNotification(item) {
+  const related = String(item?.related_id || '')
+  const title = String(item?.title || '').trim().toLowerCase()
+  return related.startsWith('bm:') || title === 'bed marked for maintenance'
 }
 
 /** In-app destination for a notification, or '' if there is none. */
@@ -63,6 +69,10 @@ export function notificationTargetPath(item, role) {
   const type = String(item?.type || '')
   const isAdmin = role === ROLES.ADMIN
   const patientId = relatedPatientIdFromNotification(item)
+
+  if (isBedMaintenanceNotification(item)) {
+    return isAdmin ? ROUTES.ADMIN_BEDS : ROUTES.RECEPTION_BEDS
+  }
 
   if (type === 'staff' || type === 'receptionist') {
     return isAdmin ? ROUTES.ADMIN_RECEPTIONISTS : ''

@@ -84,3 +84,75 @@ export const NOTIFICATION_TYPES: string[] = [
   ...PUBLIC_NOTIFICATION_TYPES,
   LEGACY_NOTIFICATION_TYPE_RECEPTIONIST,
 ];
+
+export const RoomType = {
+  GENERAL: "GENERAL",
+  PRIVATE: "PRIVATE",
+  SEMI_PRIVATE: "SEMI_PRIVATE",
+  ICU: "ICU",
+  EMERGENCY: "EMERGENCY",
+  WARD: "WARD",
+  OTHER: "OTHER",
+} as const;
+
+export type RoomType = (typeof RoomType)[keyof typeof RoomType];
+
+export const ROOM_TYPES: RoomType[] = [
+  RoomType.GENERAL,
+  RoomType.PRIVATE,
+  RoomType.SEMI_PRIVATE,
+  RoomType.ICU,
+  RoomType.EMERGENCY,
+  RoomType.WARD,
+  RoomType.OTHER,
+];
+
+export const BedStatus = {
+  AVAILABLE: "available",
+  OCCUPIED: "occupied",
+  RESERVED: "reserved",
+  MAINTENANCE: "maintenance",
+  BLOCKED: "blocked",
+} as const;
+
+export type BedStatus = (typeof BedStatus)[keyof typeof BedStatus];
+
+export const BED_STATUSES: BedStatus[] = [
+  BedStatus.AVAILABLE,
+  BedStatus.OCCUPIED,
+  BedStatus.RESERVED,
+  BedStatus.MAINTENANCE,
+  BedStatus.BLOCKED,
+];
+
+/** Beds a patient may be assigned onto. */
+export const ASSIGNABLE_BED_STATUSES: BedStatus[] = [BedStatus.AVAILABLE];
+
+/** Statuses that count as an active assignment for a patient. */
+export const ACTIVE_BED_ASSIGNMENT_STATUSES: BedStatus[] = [
+  BedStatus.OCCUPIED,
+  BedStatus.RESERVED,
+];
+
+export const CareType = {
+  OUTPATIENT: "Outpatient",
+  INPATIENT: "Inpatient",
+} as const;
+
+export type CareType = (typeof CareType)[keyof typeof CareType];
+
+export const CARE_TYPES: CareType[] = [CareType.OUTPATIENT, CareType.INPATIENT];
+
+export const AdmissionStatus = {
+  REQUIRED: "Admission Required",
+  ADMITTED: "Admitted",
+  DISCHARGED: "Discharged",
+} as const;
+
+export type AdmissionStatus = (typeof AdmissionStatus)[keyof typeof AdmissionStatus];
+
+export const ADMISSION_STATUSES: AdmissionStatus[] = [
+  AdmissionStatus.REQUIRED,
+  AdmissionStatus.ADMITTED,
+  AdmissionStatus.DISCHARGED,
+];

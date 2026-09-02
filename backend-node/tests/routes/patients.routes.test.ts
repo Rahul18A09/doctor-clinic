@@ -131,6 +131,8 @@ describe("patient API", { timeout: 120_000 }, () => {
     assert.equal(patient.is_editable_by_receptionist, true);
     assert.equal(patient.is_editable_by_admin, true);
     assert.equal(patient.temperature, null);
+    assert.equal(patient.care_type, "");
+    assert.equal(patient.admission_status, "");
 
     const stored = await Patient.findById(waitingId).exec();
     assert.ok(stored);
@@ -190,6 +192,39 @@ describe("patient API", { timeout: 120_000 }, () => {
       .query({ date: "not-a-date", filter: "today", search: "Node Pat Alpha" })
       .set(deskAuth());
     assert.equal(invalidDate.status, 200);
+  });
+
+  it("GET /api/v1/patients/ can list visits that require admission", async () => {
+    const inpatient = await Patient.create({
+      token_number: `req${Date.now().toString(36)}`.slice(0, 20),
+      visit_number: 1,
+      patient_name: `${stamp} admit-needed`,
+      mobile: `8${String(Date.now()).slice(-9)}`,
+      age: 41,
+      gender: "MALE",
+      chief_complaint: "Admission",
+      status: "WAITING",
+      care_type: "Inpatient",
+      admission_status: "Admission Required",
+      created_by: adminId,
+    });
+    trackPatient(String(inpatient._id));
+
+    const listed = await request(app)
+      .get("/api/v1/patients/")
+      .query({ filter: "admission_required", search: stamp })
+      .set(deskAuth());
+    assert.equal(listed.status, 200);
+    assert.ok(listed.body.data.results.some((row: { id: string }) => row.id === String(inpatient._id)));
+    assert.ok(
+      listed.body.data.results.every((row: { admission_status: string }) => row.admission_status === "Admission Required"),
+    );
+
+    const discharge = await request(app)
+      .post(`/api/v1/patients/${String(inpatient._id)}/discharge/`)
+      .set(deskAuth());
+    assert.equal(discharge.status, 400);
+    assert.equal(discharge.body.message, "This patient is not currently admitted.");
   });
 
   it("GET /api/v1/patients/lookup/ finds returning patients by exact mobile", async () => {

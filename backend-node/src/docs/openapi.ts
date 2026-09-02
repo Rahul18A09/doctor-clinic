@@ -25,6 +25,10 @@ export const openApiDocument: JsonObject = {
       "- Missing/invalid JWT uses DRF `{ detail }` and `WWW-Authenticate: Bearer realm=\"api\"`.",
       "- Health is not enveloped: `{ status, database }`.",
       "- Invalid refresh tokens return HTTP 401 with the business envelope (`errors.detail` / `errors.code`).",
+      "",
+      "**Bed Management**",
+      "Documented by role under tags **Admin Bed Management** and **Receptionist Bed Management**.",
+      "Admin has full inventory access (`canManageBeds`). Receptionist may view rooms/beds (`canViewBeds`) and assign/release (`canAssignBeds`). See `docs/bed-management.md`.",
     ].join("\n"),
   },
   servers: [
@@ -47,6 +51,26 @@ export const openApiDocument: JsonObject = {
     { name: "Settings", description: "Admin-only clinic, queue, notification, and preference settings stored in MongoDB." },
     { name: "Notifications", description: "In-app inbox for the logged-in admin or receptionist. Records belong to the current user only. Receptionist consultation events cover started, completed, and cancelled treatments." },
     { name: "Reports", description: "Admin-only historical analytics for a date range. Dashboard remains today/live." },
+    {
+      name: "Admin Bed Management",
+      description: [
+        "Bed Management APIs an Admin may call.",
+        "Inventory mutations use `canManageBeds` (ADMIN only): create/update/delete rooms and beds, and PATCH bed status.",
+        "Shared read and occupancy APIs use `canViewBeds` / `canAssignBeds` (ADMIN and RECEPTIONIST).",
+        "Full request/response examples: `docs/bed-management.md`.",
+        "Available-bed counts are calculated from bed statuses, not stored.",
+      ].join(" "),
+    },
+    {
+      name: "Receptionist Bed Management",
+      description: [
+        "Bed Management APIs a Receptionist may call.",
+        "Implemented permissions: `canViewBeds` for list/view rooms and beds, available beds, and summary;",
+        "`canAssignBeds` for assign and release.",
+        "Receptionist cannot create, update, or delete rooms; cannot create, update, or delete beds; cannot PATCH bed status.",
+        "Full documentation: `docs/bed-management.md`.",
+      ].join(" "),
+    },
   ],
   security: [{ BearerAuth: [] }],
   paths: {
@@ -783,8 +807,10 @@ export const openApiDocument: JsonObject = {
           { name: "page_size", in: "query", schema: { type: "integer", default: 10, maximum: 100 } },
           { name: "search", in: "query", schema: { type: "string" } },
           { name: "status", in: "query", schema: { type: "string" } },
-          { name: "filter", in: "query", schema: { type: "string", enum: ["waiting", "completed", "today"] } },
+          { name: "filter", in: "query", schema: { type: "string", enum: ["waiting", "completed", "today", "admission_required"] } },
           { name: "date", in: "query", schema: { type: "string", format: "date" } },
+          { name: "care_type", in: "query", schema: { type: "string", enum: ["Outpatient", "Inpatient"] } },
+          { name: "admission_status", in: "query", schema: { type: "string", enum: ["Admission Required", "Admitted", "Discharged"] } },
         ],
         responses: {
           "200": {
@@ -943,6 +969,29 @@ export const openApiDocument: JsonObject = {
         },
       },
     },
+    "/api/v1/patients/{pk}/discharge/": {
+      parameters: [{ name: "pk", in: "path", required: true, schema: { type: "string" } }],
+      post: {
+        tags: ["Patients"],
+        summary: "Discharge inpatient",
+        operationId: "dischargePatient",
+        description:
+          "Admin or receptionist (`canAssignBeds`). Closes an active Inpatient admission and releases the occupied bed. Consultation status is unchanged.",
+        responses: {
+          "200": {
+            description: "Patient discharged successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/PatientItemResponse" } } },
+          },
+          "400": {
+            description: "This patient is not currently admitted.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenAssignBeds" },
+          "404": { $ref: "#/components/responses/PatientNotFound" },
+        },
+      },
+    },
     "/api/v1/doctor/stats/": {
       get: {
         tags: ["Doctor"],
@@ -1074,6 +1123,43 @@ export const openApiDocument: JsonObject = {
         },
       },
     },
+    "/api/v1/doctor/patients/{pk}/care-type/": {
+      parameters: [{ name: "pk", in: "path", required: true, schema: { type: "string" } }],
+      put: {
+        tags: ["Doctor"],
+        summary: "Set Outpatient or Inpatient",
+        operationId: "setPatientCareType",
+        description:
+          "Admin only. Sets `care_type` to Outpatient or Inpatient. Inpatient without a bed becomes Admission Required. Does not assign a bed. Cannot change to Outpatient while Admitted.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["care_type"],
+                properties: {
+                  care_type: { type: "string", enum: ["Outpatient", "Inpatient"] },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Patient type saved successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/PatientItemResponse" } } },
+          },
+          "400": {
+            description: "Invalid care_type, completed visit, or admitted inpatient.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenAdmin" },
+          "404": { $ref: "#/components/responses/PatientNotFound" },
+        },
+      },
+    },
     "/api/v1/doctor/patients/{pk}/complete/": {
       parameters: [{ name: "pk", in: "path", required: true, schema: { type: "string" } }],
       post: {
@@ -1081,7 +1167,7 @@ export const openApiDocument: JsonObject = {
         summary: "Complete consultation",
         operationId: "completeConsultation",
         description:
-          "WAITING or IN_CONSULTATION → COMPLETED. Direct complete from WAITING sets start and completion timestamps together. Complete from IN_CONSULTATION keeps existing start/`consulted_by*`. Does not set CANCELLED. When `consultation_completed` is enabled, creates `consultation` notifications for admin and receptionist. Always removes any active waiting `queue` notification.",
+          "WAITING or IN_CONSULTATION → COMPLETED. Direct complete from WAITING sets start and completion timestamps together. Complete from IN_CONSULTATION keeps existing start/`consulted_by*`. Does not set CANCELLED. Does not release beds or close admissions. When `consultation_completed` is enabled, creates `consultation` notifications for admin and receptionist. Always removes any active waiting `queue` notification.",
         responses: {
           "200": {
             description: "Treatment completed successfully.",
@@ -1632,6 +1718,349 @@ export const openApiDocument: JsonObject = {
         },
       },
     },
+    "/api/v1/rooms/": {
+      get: {
+        tags: ["Admin Bed Management", "Receptionist Bed Management"],
+        summary: "List rooms",
+        operationId: "listRooms",
+        description:
+          "Admin or receptionist. Paginated rooms. `available_count` and `bed_count` are computed from current bed statuses.",
+        parameters: [
+          { name: "page", in: "query", schema: { type: "integer", minimum: 1, default: 1 } },
+          { name: "page_size", in: "query", schema: { type: "integer", minimum: 1, maximum: 100, default: 10 } },
+          { name: "search", in: "query", schema: { type: "string" } },
+          { name: "room_type", in: "query", schema: { $ref: "#/components/schemas/RoomType" } },
+          { name: "floor", in: "query", schema: { type: "string" } },
+        ],
+        responses: {
+          "200": {
+            description: "Rooms retrieved successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/RoomListResponse" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenViewBeds" },
+        },
+      },
+      post: {
+        tags: ["Admin Bed Management"],
+        summary: "Create room",
+        operationId: "createRoom",
+        description: "Admin only (`canManageBeds`). Creates a room. Receptionist is forbidden.",
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/RoomWriteRequest" } } },
+        },
+        responses: {
+          "201": {
+            description: "Room created successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/RoomItemResponse" } } },
+          },
+          "400": {
+            description: "Validation failed.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenManageBeds" },
+        },
+      },
+    },
+    "/api/v1/rooms/{pk}/": {
+      parameters: [{ name: "pk", in: "path", required: true, schema: { type: "string" } }],
+      get: {
+        tags: ["Admin Bed Management", "Receptionist Bed Management"],
+        summary: "Get room with beds",
+        operationId: "getRoom",
+        description: "Admin or receptionist. Room details plus all beds in that room.",
+        responses: {
+          "200": {
+            description: "Room retrieved successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/RoomDetailResponse" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenViewBeds" },
+          "404": { $ref: "#/components/responses/RoomNotFound" },
+        },
+      },
+      put: {
+        tags: ["Admin Bed Management"],
+        summary: "Update room",
+        description: "Admin only (`canManageBeds`).",
+        operationId: "updateRoom",
+        requestBody: {
+          content: { "application/json": { schema: { $ref: "#/components/schemas/RoomWriteRequest" } } },
+        },
+        responses: {
+          "200": {
+            description: "Room updated successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/RoomItemResponse" } } },
+          },
+          "400": {
+            description: "Validation failed or capacity is below existing bed count.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenManageBeds" },
+          "404": { $ref: "#/components/responses/RoomNotFound" },
+        },
+      },
+      delete: {
+        tags: ["Admin Bed Management"],
+        summary: "Delete room",
+        operationId: "deleteRoom",
+        description:
+          "Admin only (`canManageBeds`). Deletes the room and its unoccupied beds. Occupied or reserved beds block deletion.",
+        responses: {
+          "200": {
+            description: "Room deleted successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SuccessMessageResponse" } } },
+          },
+          "400": {
+            description: "Room has occupied or reserved beds.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenManageBeds" },
+          "404": { $ref: "#/components/responses/RoomNotFound" },
+        },
+      },
+    },
+    "/api/v1/beds/": {
+      get: {
+        tags: ["Admin Bed Management", "Receptionist Bed Management"],
+        summary: "List beds",
+        operationId: "listBeds",
+        parameters: [
+          { name: "page", in: "query", schema: { type: "integer", minimum: 1, default: 1 } },
+          { name: "page_size", in: "query", schema: { type: "integer", minimum: 1, maximum: 100, default: 10 } },
+          { name: "room_id", in: "query", schema: { type: "string" } },
+          { name: "patient_id", in: "query", schema: { type: "string" } },
+          { name: "status", in: "query", schema: { $ref: "#/components/schemas/BedStatus" } },
+        ],
+        responses: {
+          "200": {
+            description: "Beds retrieved successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/BedListResponse" } } },
+          },
+          "400": {
+            description: "Invalid room_id, patient_id, or status.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenViewBeds" },
+        },
+      },
+      post: {
+        tags: ["Admin Bed Management"],
+        summary: "Create bed",
+        operationId: "createBed",
+        description:
+          "Admin only (`canManageBeds`). Creates a bed in a room. Rejected when the room is at capacity. Occupied status is not allowed at create time.",
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { $ref: "#/components/schemas/BedWriteRequest" } } },
+        },
+        responses: {
+          "201": {
+            description: "Bed created successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/BedItemResponse" } } },
+          },
+          "400": {
+            description: "Validation failed, duplicate bed number, or room at capacity.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenManageBeds" },
+          "404": { $ref: "#/components/responses/RoomNotFound" },
+        },
+      },
+    },
+    "/api/v1/beds/available/": {
+      get: {
+        tags: ["Admin Bed Management", "Receptionist Bed Management"],
+        summary: "List available beds",
+        operationId: "listAvailableBeds",
+        description: "Admin or receptionist. Beds whose current status is `available`. Count is not stored.",
+        parameters: [
+          { name: "page", in: "query", schema: { type: "integer", minimum: 1, default: 1 } },
+          { name: "page_size", in: "query", schema: { type: "integer", minimum: 1, maximum: 100, default: 10 } },
+          { name: "room_id", in: "query", schema: { type: "string" } },
+        ],
+        responses: {
+          "200": {
+            description: "Available beds retrieved successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/BedListResponse" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenViewBeds" },
+        },
+      },
+    },
+    "/api/v1/beds/summary/": {
+      get: {
+        tags: ["Admin Bed Management", "Receptionist Bed Management"],
+        summary: "Bed status counts",
+        operationId: "getBedSummary",
+        description: "Admin or receptionist. Totals are aggregated from live bed statuses.",
+        responses: {
+          "200": {
+            description: "Bed summary retrieved successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/BedSummaryResponse" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenViewBeds" },
+        },
+      },
+    },
+    "/api/v1/beds/{pk}/": {
+      parameters: [{ name: "pk", in: "path", required: true, schema: { type: "string" } }],
+      get: {
+        tags: ["Admin Bed Management", "Receptionist Bed Management"],
+        summary: "Get bed",
+        operationId: "getBed",
+        responses: {
+          "200": {
+            description: "Bed retrieved successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/BedItemResponse" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenViewBeds" },
+          "404": { $ref: "#/components/responses/BedNotFound" },
+        },
+      },
+      put: {
+        tags: ["Admin Bed Management"],
+        summary: "Update bed",
+        operationId: "updateBed",
+        description: "Admin only (`canManageBeds`).",
+        requestBody: {
+          content: { "application/json": { schema: { $ref: "#/components/schemas/BedUpdateRequest" } } },
+        },
+        responses: {
+          "200": {
+            description: "Bed updated successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/BedItemResponse" } } },
+          },
+          "400": {
+            description: "Validation failed or occupied status change is not allowed.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenManageBeds" },
+          "404": { $ref: "#/components/responses/BedNotFound" },
+        },
+      },
+      delete: {
+        tags: ["Admin Bed Management"],
+        summary: "Delete bed",
+        operationId: "deleteBed",
+        description: "Admin only (`canManageBeds`). Occupied or reserved beds cannot be deleted.",
+        responses: {
+          "200": {
+            description: "Bed deleted successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/SuccessMessageResponse" } } },
+          },
+          "400": {
+            description: "Bed is occupied or reserved.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenManageBeds" },
+          "404": { $ref: "#/components/responses/BedNotFound" },
+        },
+      },
+    },
+    "/api/v1/beds/{pk}/assign/": {
+      parameters: [{ name: "pk", in: "path", required: true, schema: { type: "string" } }],
+      post: {
+        tags: ["Admin Bed Management", "Receptionist Bed Management"],
+        summary: "Assign bed to patient",
+        operationId: "assignBed",
+        description:
+          "Admin or receptionist. Occupies an available bed for an inpatient who requires admission. Rejects occupied, reserved, maintenance, and blocked beds. A patient cannot hold two active beds.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["patient_id"],
+                properties: { patient_id: { type: "string" } },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Bed assigned successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/BedItemResponse" } } },
+          },
+          "400": {
+            description: "Bed not assignable or patient already assigned.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenAssignBeds" },
+          "404": { $ref: "#/components/responses/BedOrPatientNotFound" },
+        },
+      },
+    },
+    "/api/v1/beds/{pk}/release/": {
+      parameters: [{ name: "pk", in: "path", required: true, schema: { type: "string" } }],
+      post: {
+        tags: ["Admin Bed Management", "Receptionist Bed Management"],
+        summary: "Release bed",
+        operationId: "releaseBed",
+        description: "Admin or receptionist (`canAssignBeds`). Clears occupancy and sets status to available.",
+        responses: {
+          "200": {
+            description: "Bed released successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/BedItemResponse" } } },
+          },
+          "400": {
+            description: "Bed is not occupied or reserved.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenAssignBeds" },
+          "404": { $ref: "#/components/responses/BedNotFound" },
+        },
+      },
+    },
+    "/api/v1/beds/{pk}/status/": {
+      parameters: [{ name: "pk", in: "path", required: true, schema: { type: "string" } }],
+      patch: {
+        tags: ["Admin Bed Management"],
+        summary: "Update bed status",
+        operationId: "updateBedStatus",
+        description:
+          "Admin only (`canManageBeds`). Cannot set occupied here (use assign). Occupied beds must be released first.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["status"],
+                properties: { status: { $ref: "#/components/schemas/BedStatus" } },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Bed status updated successfully.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/BedItemResponse" } } },
+          },
+          "400": {
+            description: "Invalid status transition.",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } },
+          },
+          "401": { $ref: "#/components/responses/Unauthorized" },
+          "403": { $ref: "#/components/responses/ForbiddenManageBeds" },
+          "404": { $ref: "#/components/responses/BedNotFound" },
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -1718,6 +2147,60 @@ export const openApiDocument: JsonObject = {
           "application/json": {
             schema: { $ref: "#/components/schemas/ErrorEnvelope" },
             example: { success: false, message: "Notification not found." },
+          },
+        },
+      },
+      ForbiddenViewBeds: {
+        description: "Authenticated user cannot view rooms and beds.",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/DetailError" },
+            example: { detail: "You do not have permission to view rooms and beds." },
+          },
+        },
+      },
+      ForbiddenAssignBeds: {
+        description: "Authenticated user cannot assign or release beds.",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/DetailError" },
+            example: { detail: "You do not have permission to assign or release beds." },
+          },
+        },
+      },
+      ForbiddenManageBeds: {
+        description: "Non-admin cannot create, update, or delete rooms/beds or change bed status.",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/DetailError" },
+            example: { detail: "Only administrators can manage rooms and beds." },
+          },
+        },
+      },
+      RoomNotFound: {
+        description: "Unknown or invalid room id.",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ErrorEnvelope" },
+            example: { success: false, message: "Room not found." },
+          },
+        },
+      },
+      BedNotFound: {
+        description: "Unknown or invalid bed id.",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ErrorEnvelope" },
+            example: { success: false, message: "Bed not found." },
+          },
+        },
+      },
+      BedOrPatientNotFound: {
+        description: "Unknown or invalid bed or patient id.",
+        content: {
+          "application/json": {
+            schema: { $ref: "#/components/schemas/ErrorEnvelope" },
+            example: { success: false, message: "Patient not found." },
           },
         },
       },
@@ -2145,6 +2628,13 @@ export const openApiDocument: JsonObject = {
           consulted_by_name: { type: "string" },
           updated_by: { type: "string" },
           updated_by_name: { type: "string" },
+          care_type: { type: "string", description: "Outpatient or Inpatient. Empty until the doctor decides." },
+          admission_status: {
+            type: "string",
+            description: "Admission Required, Admitted, or Discharged. Empty for Outpatient.",
+          },
+          admitted_at: { type: "string", nullable: true },
+          discharged_at: { type: "string", nullable: true },
         },
       },
       PatientCreateRequest: {
@@ -2494,6 +2984,190 @@ export const openApiDocument: JsonObject = {
                     this_period: { type: "integer" },
                     previous_period: { type: "integer" },
                   },
+                },
+              },
+            },
+          },
+        },
+      },
+      RoomType: {
+        type: "string",
+        enum: ["GENERAL", "PRIVATE", "SEMI_PRIVATE", "ICU", "EMERGENCY", "WARD", "OTHER"],
+      },
+      BedStatus: {
+        type: "string",
+        enum: ["available", "occupied", "reserved", "maintenance", "blocked"],
+      },
+      Room: {
+        type: "object",
+        required: [
+          "id",
+          "room_number",
+          "room_type",
+          "floor",
+          "capacity",
+          "notes",
+          "bed_count",
+          "available_count",
+          "created_at",
+          "updated_at",
+        ],
+        properties: {
+          id: { type: "string" },
+          room_number: { type: "string" },
+          room_type: { $ref: "#/components/schemas/RoomType" },
+          floor: { type: "string" },
+          capacity: { type: "integer", minimum: 1, maximum: 200 },
+          notes: { type: "string" },
+          bed_count: { type: "integer", description: "Computed from beds in the room." },
+          available_count: { type: "integer", description: "Computed from beds with status available." },
+          created_at: { type: "string", nullable: true },
+          updated_at: { type: "string", nullable: true },
+        },
+      },
+      Bed: {
+        type: "object",
+        required: [
+          "id",
+          "room_id",
+          "bed_number",
+          "status",
+          "patient_id",
+          "assigned_at",
+          "created_at",
+          "updated_at",
+        ],
+        properties: {
+          id: { type: "string" },
+          room_id: { type: "string" },
+          bed_number: { type: "string" },
+          status: { $ref: "#/components/schemas/BedStatus" },
+          patient_id: { type: "string", nullable: true },
+          assigned_at: { type: "string", nullable: true },
+          created_at: { type: "string", nullable: true },
+          updated_at: { type: "string", nullable: true },
+        },
+      },
+      RoomWriteRequest: {
+        type: "object",
+        properties: {
+          room_number: { type: "string" },
+          room_type: { $ref: "#/components/schemas/RoomType" },
+          floor: { type: "string" },
+          capacity: { type: "integer", minimum: 1, maximum: 200 },
+          notes: { type: "string" },
+        },
+      },
+      BedWriteRequest: {
+        type: "object",
+        required: ["room_id", "bed_number"],
+        properties: {
+          room_id: { type: "string" },
+          bed_number: { type: "string" },
+          status: { $ref: "#/components/schemas/BedStatus" },
+        },
+      },
+      BedUpdateRequest: {
+        type: "object",
+        properties: {
+          bed_number: { type: "string" },
+          status: { $ref: "#/components/schemas/BedStatus" },
+        },
+      },
+      RoomListResponse: {
+        type: "object",
+        required: ["success", "message", "data"],
+        properties: {
+          success: { type: "boolean", enum: [true] },
+          message: { type: "string" },
+          data: {
+            type: "object",
+            required: ["results", "pagination"],
+            properties: {
+              results: { type: "array", items: { $ref: "#/components/schemas/Room" } },
+              pagination: { $ref: "#/components/schemas/PaginationMeta" },
+            },
+          },
+        },
+      },
+      RoomItemResponse: {
+        type: "object",
+        required: ["success", "message", "data"],
+        properties: {
+          success: { type: "boolean", enum: [true] },
+          message: { type: "string" },
+          data: {
+            type: "object",
+            required: ["room"],
+            properties: { room: { $ref: "#/components/schemas/Room" } },
+          },
+        },
+      },
+      RoomDetailResponse: {
+        type: "object",
+        required: ["success", "message", "data"],
+        properties: {
+          success: { type: "boolean", enum: [true] },
+          message: { type: "string" },
+          data: {
+            type: "object",
+            required: ["room", "beds"],
+            properties: {
+              room: { $ref: "#/components/schemas/Room" },
+              beds: { type: "array", items: { $ref: "#/components/schemas/Bed" } },
+            },
+          },
+        },
+      },
+      BedListResponse: {
+        type: "object",
+        required: ["success", "message", "data"],
+        properties: {
+          success: { type: "boolean", enum: [true] },
+          message: { type: "string" },
+          data: {
+            type: "object",
+            required: ["results", "pagination"],
+            properties: {
+              results: { type: "array", items: { $ref: "#/components/schemas/Bed" } },
+              pagination: { $ref: "#/components/schemas/PaginationMeta" },
+            },
+          },
+        },
+      },
+      BedItemResponse: {
+        type: "object",
+        required: ["success", "message", "data"],
+        properties: {
+          success: { type: "boolean", enum: [true] },
+          message: { type: "string" },
+          data: {
+            type: "object",
+            required: ["bed"],
+            properties: { bed: { $ref: "#/components/schemas/Bed" } },
+          },
+        },
+      },
+      BedSummaryResponse: {
+        type: "object",
+        required: ["success", "message", "data"],
+        properties: {
+          success: { type: "boolean", enum: [true] },
+          message: { type: "string" },
+          data: {
+            type: "object",
+            required: ["summary"],
+            properties: {
+              summary: {
+                type: "object",
+                required: ["total", "available", "occupied", "reserved", "maintenance", "blocked"],
+                properties: {
+                  total: { type: "integer" },
+                  available: { type: "integer" },
+                  occupied: { type: "integer" },
+                  reserved: { type: "integer" },
+                  maintenance: { type: "integer" },
+                  blocked: { type: "integer" },
                 },
               },
             },

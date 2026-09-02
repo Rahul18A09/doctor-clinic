@@ -7,7 +7,9 @@ import { createApp } from "../../src/app";
 import { generateAccessToken } from "../../src/auth/jwt";
 import { hashDjangoPassword } from "../../src/auth/password";
 import { connectDatabase, disconnectDatabase } from "../../src/config/database";
+import { Bed } from "../../src/models/bed.model";
 import { Patient } from "../../src/models/patient.model";
+import { Room } from "../../src/models/room.model";
 import { User } from "../../src/models/user.model";
 
 const app = createApp();
@@ -16,6 +18,8 @@ const PASSWORD = "DocPass-Test9x";
 describe("doctor API", { timeout: 120_000 }, () => {
   const createdUserIds: string[] = [];
   const createdPatientIds: string[] = [];
+  const createdRoomIds: string[] = [];
+  const createdBedIds: string[] = [];
   let stamp = "";
   let tokenBase = "";
   let tokenSeq = 0;
@@ -67,6 +71,12 @@ describe("doctor API", { timeout: 120_000 }, () => {
   });
 
   after(async () => {
+    if (createdBedIds.length > 0) {
+      await Bed.deleteMany({ _id: { $in: createdBedIds } });
+    }
+    if (createdRoomIds.length > 0) {
+      await Room.deleteMany({ _id: { $in: createdRoomIds } });
+    }
     if (createdPatientIds.length > 0) {
       await Patient.deleteMany({ _id: { $in: createdPatientIds } });
     }
@@ -462,6 +472,120 @@ describe("doctor API", { timeout: 120_000 }, () => {
     assert.equal(body.consultation_started_at, body.consultation_completed_at);
   });
 
+  it("POST complete does not release an admitted inpatient bed", async () => {
+    const patient = await createPatient({
+      patient_name: `${stamp} complete-bed`,
+      care_type: "Inpatient",
+      admission_status: "Admission Required",
+    });
+    const room = await request(app).post("/api/v1/rooms/").set(adminAuth()).send({
+      room_number: `DW-${tokenBase}${tokenSeq}`,
+      room_type: "WARD",
+      floor: "1",
+      capacity: 1,
+    });
+    assert.equal(room.status, 201);
+    createdRoomIds.push(room.body.data.room.id);
+    const bed = await request(app).post("/api/v1/beds/").set(adminAuth()).send({
+      room_id: room.body.data.room.id,
+      bed_number: "1",
+    });
+    assert.equal(bed.status, 201);
+    const bedId = bed.body.data.bed.id;
+    createdBedIds.push(bedId);
+
+    const assigned = await request(app)
+      .post(`/api/v1/beds/${bedId}/assign/`)
+      .set(adminAuth())
+      .send({ patient_id: String(patient._id) });
+    assert.equal(assigned.status, 200);
+    assert.equal(assigned.body.data.bed.status, "occupied");
+
+    const res = await request(app)
+      .post(`/api/v1/doctor/patients/${String(patient._id)}/complete/`)
+      .set(adminAuth());
+    assert.equal(res.status, 200);
+    assert.equal(res.body.data.patient.status, "COMPLETED");
+    assert.equal(res.body.data.patient.admission_status, "Admitted");
+
+    const stillOccupied = await request(app).get(`/api/v1/beds/${bedId}/`).set(adminAuth());
+    assert.equal(stillOccupied.status, 200);
+    assert.equal(stillOccupied.body.data.bed.status, "occupied");
+    assert.equal(stillOccupied.body.data.bed.patient_id, String(patient._id));
+
+    const discharged = await request(app)
+      .post(`/api/v1/patients/${String(patient._id)}/discharge/`)
+      .set(adminAuth());
+    assert.equal(discharged.status, 200);
+    assert.equal(discharged.body.data.patient.admission_status, "Discharged");
+
+    const released = await request(app).get(`/api/v1/beds/${bedId}/`).set(adminAuth());
+    assert.equal(released.status, 200);
+    assert.equal(released.body.data.bed.status, "available");
+    assert.equal(released.body.data.bed.patient_id, null);
+  });
+
+  it("POST cancel does not release an admitted inpatient bed", async () => {
+    const patient = await createPatient({
+      patient_name: `${stamp} cancel-bed`,
+      status: "IN_CONSULTATION",
+      care_type: "Inpatient",
+      admission_status: "Admission Required",
+    });
+    const room = await request(app).post("/api/v1/rooms/").set(adminAuth()).send({
+      room_number: `CX-${tokenBase}${tokenSeq}`,
+      room_type: "WARD",
+      floor: "1",
+      capacity: 1,
+    });
+    createdRoomIds.push(room.body.data.room.id);
+    const bed = await request(app).post("/api/v1/beds/").set(adminAuth()).send({
+      room_id: room.body.data.room.id,
+      bed_number: "1",
+    });
+    const bedId = bed.body.data.bed.id;
+    createdBedIds.push(bedId);
+    await request(app)
+      .post(`/api/v1/beds/${bedId}/assign/`)
+      .set(adminAuth())
+      .send({ patient_id: String(patient._id) });
+
+    const cancelled = await request(app)
+      .post(`/api/v1/doctor/patients/${String(patient._id)}/cancel/`)
+      .set(adminAuth());
+    assert.equal(cancelled.status, 200);
+    assert.equal(cancelled.body.data.patient.status, "WAITING");
+    assert.equal(cancelled.body.data.patient.admission_status, "Admitted");
+
+    const occupied = await request(app).get(`/api/v1/beds/${bedId}/`).set(adminAuth());
+    assert.equal(occupied.body.data.bed.status, "occupied");
+  });
+
+  it("PUT care-type is admin-only and sets Admission Required for Inpatient", async () => {
+    const patient = await createPatient({ patient_name: `${stamp} care-type` });
+    const desk = await request(app)
+      .put(`/api/v1/doctor/patients/${String(patient._id)}/care-type/`)
+      .set(deskAuth())
+      .send({ care_type: "Inpatient" });
+    assert.equal(desk.status, 403);
+
+    const inpatient = await request(app)
+      .put(`/api/v1/doctor/patients/${String(patient._id)}/care-type/`)
+      .set(adminAuth())
+      .send({ care_type: "Inpatient" });
+    assert.equal(inpatient.status, 200);
+    assert.equal(inpatient.body.data.patient.care_type, "Inpatient");
+    assert.equal(inpatient.body.data.patient.admission_status, "Admission Required");
+
+    const outpatient = await request(app)
+      .put(`/api/v1/doctor/patients/${String(patient._id)}/care-type/`)
+      .set(adminAuth())
+      .send({ care_type: "Outpatient" });
+    assert.equal(outpatient.status, 200);
+    assert.equal(outpatient.body.data.patient.care_type, "Outpatient");
+    assert.equal(outpatient.body.data.patient.admission_status, "");
+  });
+
   it("POST complete from IN_CONSULTATION keeps existing start and doctor", async () => {
     const startedAt = new Date("2026-08-19T08:00:00.000Z");
     const patient = await createPatient({
@@ -560,6 +684,7 @@ describe("doctor API", { timeout: 120_000 }, () => {
     for (const req of [
       request(app).post(`/api/v1/doctor/patients/${id}/start/`),
       request(app).put(`/api/v1/doctor/patients/${id}/consultation/`).send({}),
+      request(app).put(`/api/v1/doctor/patients/${id}/care-type/`).send({ care_type: "Inpatient" }),
       request(app).post(`/api/v1/doctor/patients/${id}/complete/`),
       request(app).post(`/api/v1/doctor/patients/${id}/cancel/`),
       request(app).get(`/api/v1/doctor/patients/${id}/`),

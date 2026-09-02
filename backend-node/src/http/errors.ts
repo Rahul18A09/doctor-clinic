@@ -9,6 +9,9 @@ export const PermissionMessage = {
   updatePatients: "You do not have permission to update patients.",
   deletePatients: "Only administrators can delete patients.",
   viewNotifications: "You do not have permission to view notifications.",
+  viewBeds: "You do not have permission to view rooms and beds.",
+  assignBeds: "You do not have permission to assign or release beds.",
+  manageBeds: "Only administrators can manage rooms and beds.",
 } as const;
 
 export class InvalidPaginationError extends Error {

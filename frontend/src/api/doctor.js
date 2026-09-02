@@ -9,4 +9,5 @@ export const doctorConsultationService = {
   saveConsultation: (id, data) => api.put(`/doctor/patients/${id}/consultation/`, data),
   complete: (id) => api.post(`/doctor/patients/${id}/complete/`),
   cancel: (id) => api.post(`/doctor/patients/${id}/cancel/`),
+  setCareType: (id, data) => api.put(`/doctor/patients/${id}/care-type/`, data),
 }

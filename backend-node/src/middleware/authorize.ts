@@ -87,3 +87,17 @@ export const canAccessNotifications = requirePermission(
   UserRole.ADMIN,
   UserRole.RECEPTIONIST,
 );
+export const canViewBeds = requirePermission(
+  PermissionMessage.viewBeds,
+  UserRole.ADMIN,
+  UserRole.RECEPTIONIST,
+);
+export const canAssignBeds = requirePermission(
+  PermissionMessage.assignBeds,
+  UserRole.ADMIN,
+  UserRole.RECEPTIONIST,
+);
+export const canManageBeds = requirePermission(
+  PermissionMessage.manageBeds,
+  UserRole.ADMIN,
+);

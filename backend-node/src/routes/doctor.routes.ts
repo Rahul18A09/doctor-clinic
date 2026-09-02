@@ -1,7 +1,7 @@
 import type { Request, RequestHandler, Response } from "express";
 import { Router } from "express";
 
-import { NotificationType, PatientStatus } from "../constants";
+import { CARE_TYPES, NotificationType, PatientStatus, type CareType } from "../constants";
 import { hasFieldErrors, type FieldErrors } from "../http/errors";
 import { buildPaginationMeta, parsePagination } from "../http/pagination";
 import {
@@ -19,6 +19,7 @@ import {
   readOptionalNullableFloat,
   readOptionalString,
   readQueryString,
+  readRequiredChoice,
 } from "../http/validation";
 import { authenticate } from "../middleware/authenticate";
 import { requireAdmin } from "../middleware/authorize";
@@ -29,6 +30,7 @@ import {
   consultationStartedMessage,
   patientNotificationSubject,
 } from "../notifications/messages";
+import { notifyAdmissionRequired } from "../notifications/bedEvents";
 import {
   CLINIC_ROLES,
   RECEPTIONIST_ROLES,
@@ -37,6 +39,7 @@ import {
   notifyStaffSafe,
   resolveQueueNotifications,
 } from "../notifications/notifyStaff";
+import { applyCareTypeDecision } from "../patients/admission";
 import { buildDoctorListFilter, doctorListSort } from "../patients/doctorFilters";
 import { serializePatient } from "../patients/serializePatient";
 import { getPatientStats } from "../patients/stats";
@@ -430,6 +433,54 @@ const cancelConsultation: RequestHandler = async (req: Request, res: Response): 
   });
 };
 
+const setCareType: RequestHandler = async (req: Request, res: Response): Promise<void> => {
+  const patient = await loadPatientOr404(String(req.params["pk"] ?? ""), res);
+  if (!patient) {
+    return;
+  }
+  const user = req.user;
+  if (!user) {
+    return;
+  }
+  const careType = readRequiredChoice<CareType>(readBody(req.body), "care_type", CARE_TYPES);
+  const errors = collectFieldErrors({ care_type: careType });
+  if (hasFieldErrors(errors)) {
+    validationErrorResponse(res, errors);
+    return;
+  }
+  const decision = applyCareTypeDecision(patient, careType.value as CareType);
+  if (!decision.ok) {
+    errorResponse(res, { message: decision.message, statusCode: 400 });
+    return;
+  }
+
+  const now = new Date();
+  const update: Record<string, unknown> = {
+    $set: {
+      ...decision.patch,
+      updated_by: user.id,
+      updated_by_name: user.full_name,
+      updated_at: now,
+    },
+  };
+  if (decision.unset.length > 0) {
+    update.$unset = Object.fromEntries(decision.unset.map((key) => [key, 1]));
+  }
+
+  const updated = await Patient.findByIdAndUpdate(patient._id, update, { returnDocument: "after" }).exec();
+  if (!updated) {
+    notFoundResponse(res, NOT_FOUND);
+    return;
+  }
+  if (decision.notifyRequired) {
+    await notifyAdmissionRequired(String(updated._id));
+  }
+  successResponse(res, {
+    message: "Patient type saved successfully.",
+    data: { patient: serializePatient(updated) },
+  });
+};
+
 const getDoctorStats: RequestHandler = async (_req: Request, res: Response): Promise<void> => {
   successResponse(res, {
     message: "Consultation stats retrieved successfully.",
@@ -448,6 +499,8 @@ doctorPatientsRouter.post("/:pk/start/", ...adminOnly, startConsultation);
 doctorPatientsRouter.post("/:pk/start", ...adminOnly, startConsultation);
 doctorPatientsRouter.put("/:pk/consultation/", ...adminOnly, saveConsultation);
 doctorPatientsRouter.put("/:pk/consultation", ...adminOnly, saveConsultation);
+doctorPatientsRouter.put("/:pk/care-type/", ...adminOnly, setCareType);
+doctorPatientsRouter.put("/:pk/care-type", ...adminOnly, setCareType);
 doctorPatientsRouter.post("/:pk/complete/", ...adminOnly, completeConsultation);
 doctorPatientsRouter.post("/:pk/complete", ...adminOnly, completeConsultation);
 doctorPatientsRouter.post("/:pk/cancel/", ...adminOnly, cancelConsultation);

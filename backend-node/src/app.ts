@@ -11,6 +11,8 @@ import patientRouter from "./routes/patients.routes";
 import queueRouter from "./routes/queue.routes";
 import receptionistRouter from "./routes/receptionists.routes";
 import reportsRouter from "./routes/reports.routes";
+import roomsRouter from "./routes/rooms.routes";
+import bedsRouter from "./routes/beds.routes";
 import settingsRouter from "./routes/settings.routes";
 
 export function createApp(): Express {
@@ -87,6 +89,10 @@ export function createApp(): Express {
   app.use("/api/v1/doctor/patients/", doctorPatientsRouter);
   app.use("/api/v1/notifications", notificationsRouter);
   app.use("/api/v1/notifications/", notificationsRouter);
+  app.use("/api/v1/rooms", roomsRouter);
+  app.use("/api/v1/rooms/", roomsRouter);
+  app.use("/api/v1/beds", bedsRouter);
+  app.use("/api/v1/beds/", bedsRouter);
 
   return app;
 }

@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { doctorConsultationService } from '@/api/doctor'
+import { AdmissionStatusBadge, CareTypeBadge } from '@/components/patients/AdmissionBadges'
 import { PatientStatusBadge } from '@/components/patients/PatientStatusBadge'
 import { BackButton, Button, CompleteTreatmentDialog, ConfirmDialog, Input } from '@/components/ui'
 import { useToast } from '@/context/ToastContext'
 import { useNotifications } from '@/hooks/useNotifications'
-import { CONSULTATION_TABS, PATIENT_STATUS, ROUTES } from '@/utils/constants'
+import { ADMISSION_STATUS, CARE_TYPE, CONSULTATION_TABS, PATIENT_STATUS, ROUTES } from '@/utils/constants'
 import { formatTokenForUi } from '@/utils/formatToken'
 
 function formatDate(iso) {
@@ -57,6 +58,7 @@ export function ConsultationPage() {
   const [starting, setStarting] = useState(false)
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [savingCareType, setSavingCareType] = useState(false)
 
   const isReadOnly = patient?.status === PATIENT_STATUS.COMPLETED
   const isWaiting = patient?.status === PATIENT_STATUS.WAITING
@@ -182,6 +184,25 @@ export function ConsultationPage() {
     }
   }
 
+  const handleCareType = async (careType) => {
+    if (!id || savingCareType || patient?.care_type === careType) return
+    setSavingCareType(true)
+    try {
+      const { data: res } = await doctorConsultationService.setCareType(id, { care_type: careType })
+      setPatient(res.data.patient)
+      await refreshNotifications()
+      showSuccess(
+        careType === CARE_TYPE.INPATIENT
+          ? 'Inpatient selected. Admission is required until a bed is assigned.'
+          : 'Outpatient selected. No admission or bed is required.',
+      )
+    } catch (err) {
+      showError(err.response?.data?.message || err.message)
+    } finally {
+      setSavingCareType(false)
+    }
+  }
+
   const handleStartConsultation = async () => {
     setStarting(true)
     try {
@@ -215,6 +236,8 @@ export function ConsultationPage() {
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-xl font-bold text-foreground sm:text-2xl">Consultation</h2>
             <PatientStatusBadge status={patient.status} />
+            <CareTypeBadge careType={patient.care_type} />
+            <AdmissionStatusBadge status={patient.admission_status} />
           </div>
           <p className="mt-1 font-mono text-sm text-primary-600">
             {formatTokenForUi(patient.token_number)} · Visit #{patient.visit_number || 1}
@@ -251,6 +274,51 @@ export function ConsultationPage() {
           <DetailRow label="Registered By" value={patient.created_by_name} />
           <DetailRow label="Registered Time" value={formatDate(patient.created_at)} />
         </dl>
+      </SectionCard>
+
+      <SectionCard title="Patient Type">
+        <p className="text-sm text-muted">
+          Select Outpatient or Inpatient. This does not assign a bed. Completing treatment does not
+          discharge an Inpatient.
+        </p>
+        {isReadOnly ? (
+          <div className="mt-4 flex flex-wrap gap-2">
+            <CareTypeBadge careType={patient.care_type} />
+            <AdmissionStatusBadge status={patient.admission_status} />
+            {!patient.care_type && <span className="text-sm text-muted">Not set</span>}
+          </div>
+        ) : (
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <Button
+              variant={patient.care_type === CARE_TYPE.OUTPATIENT ? 'primary' : 'secondary'}
+              disabled={savingCareType}
+              onClick={() => handleCareType(CARE_TYPE.OUTPATIENT)}
+              className="w-full sm:w-auto"
+            >
+              Outpatient
+            </Button>
+            <Button
+              variant={patient.care_type === CARE_TYPE.INPATIENT ? 'primary' : 'secondary'}
+              disabled={savingCareType}
+              onClick={() => handleCareType(CARE_TYPE.INPATIENT)}
+              className="w-full sm:w-auto"
+            >
+              Inpatient
+            </Button>
+          </div>
+        )}
+        {patient.admission_status === ADMISSION_STATUS.REQUIRED && (
+          <p className="mt-3 text-sm text-amber-800">
+            Admission Required. Reception or Admin can assign an available bed from Patient Details
+            or Bed Management.
+          </p>
+        )}
+        {patient.admission_status === ADMISSION_STATUS.ADMITTED && (
+          <p className="mt-3 text-sm text-muted">
+            Admitted. Cancelled or completed consultation does not release the bed. Discharge from
+            Patient Details when the stay ends.
+          </p>
+        )}
       </SectionCard>
 
       {isReadOnly && (

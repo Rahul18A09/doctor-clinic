@@ -37,6 +37,10 @@ export type SerializedPatient = {
   consulted_by_name: string;
   updated_by: string;
   updated_by_name: string;
+  care_type: string;
+  admission_status: string;
+  admitted_at: string | null;
+  discharged_at: string | null;
 };
 
 function nullableNumber(value: number | null | undefined): number | null {
@@ -77,6 +81,10 @@ export function serializePatient(patient: {
   consulted_by_name?: string | null;
   updated_by?: string | null;
   updated_by_name?: string | null;
+  care_type?: string | null;
+  admission_status?: string | null;
+  admitted_at?: Date | null;
+  discharged_at?: Date | null;
 }): SerializedPatient {
   return {
     id: patient.id ?? String(patient._id),
@@ -112,5 +120,9 @@ export function serializePatient(patient: {
     consulted_by_name: patient.consulted_by_name || "",
     updated_by: patient.updated_by || "",
     updated_by_name: patient.updated_by_name || "",
+    care_type: patient.care_type || "",
+    admission_status: patient.admission_status || "",
+    admitted_at: toDjangoIso(patient.admitted_at),
+    discharged_at: toDjangoIso(patient.discharged_at),
   };
 }

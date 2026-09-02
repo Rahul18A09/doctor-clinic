@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { doctorConsultationService } from '@/api/doctor'
+import { AdmissionStatusBadge, CareTypeBadge } from '@/components/patients/AdmissionBadges'
 import { PatientStatusBadge } from '@/components/patients/PatientStatusBadge'
 import { Button, CompleteTreatmentDialog, ConfirmDialog, getAppliedSearchFromInput, ListStatus, RefreshButton } from '@/components/ui'
 import { useToast } from '@/context/ToastContext'
@@ -513,6 +514,12 @@ export function ConsultationQueuePage() {
                     <p className="mt-0.5 font-mono text-sm text-primary-600">
                       {formatTokenForUi(p.token_number)} · Visit #{p.visit_number || 1}
                     </p>
+                    {(p.care_type || p.admission_status) && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <CareTypeBadge careType={p.care_type} />
+                        <AdmissionStatusBadge status={p.admission_status} />
+                      </div>
+                    )}
                   </div>
                   <PatientStatusBadge status={p.status} />
                 </div>
@@ -554,6 +561,8 @@ export function ConsultationQueuePage() {
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Token</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Visit</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Patient Name</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Patient Type</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Admission</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Age</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Gender</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Chief Complaint</th>
@@ -582,6 +591,12 @@ export function ConsultationQueuePage() {
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-muted sm:px-6">#{p.visit_number || 1}</td>
                       <td className="whitespace-nowrap px-4 py-4 font-medium text-foreground sm:px-6">{p.patient_name}</td>
+                      <td className="whitespace-nowrap px-4 py-4 sm:px-6">
+                        {p.care_type ? <CareTypeBadge careType={p.care_type} /> : '—'}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 sm:px-6">
+                        {p.admission_status ? <AdmissionStatusBadge status={p.admission_status} /> : '—'}
+                      </td>
                       <td className="whitespace-nowrap px-4 py-4 text-muted sm:px-6">{p.age}</td>
                       <td className="whitespace-nowrap px-4 py-4 text-muted sm:px-6">{p.gender}</td>
                       <td className="max-w-xs truncate whitespace-nowrap px-4 py-4 text-muted sm:px-6">{p.chief_complaint}</td>

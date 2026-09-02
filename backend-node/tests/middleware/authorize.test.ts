@@ -6,7 +6,10 @@ import type { NextFunction, Request, Response } from "express";
 import type { AuthenticatedUser } from "../../src/auth/types";
 import {
   canAccessNotifications,
+  canAssignBeds,
   canDeletePatients,
+  canManageBeds,
+  canViewBeds,
   canViewPatients,
   requireAdmin,
   requireAdminOrReceptionist,
@@ -139,5 +142,30 @@ describe("role authorization middleware", () => {
     const desk = run(canAccessNotifications, mockRequest(RECEPTIONIST));
     assert.equal(admin.nextCalled, true);
     assert.equal(desk.nextCalled, true);
+  });
+
+  it("allows admin and receptionist to view rooms and beds", () => {
+    const admin = run(canViewBeds, mockRequest(ADMIN));
+    const desk = run(canViewBeds, mockRequest(RECEPTIONIST));
+    assert.equal(admin.nextCalled, true);
+    assert.equal(desk.nextCalled, true);
+  });
+
+  it("allows admin and receptionist to assign or release beds", () => {
+    const admin = run(canAssignBeds, mockRequest(ADMIN));
+    const desk = run(canAssignBeds, mockRequest(RECEPTIONIST));
+    assert.equal(admin.nextCalled, true);
+    assert.equal(desk.nextCalled, true);
+  });
+
+  it("allows only admin to manage room and bed inventory", () => {
+    const admin = run(canManageBeds, mockRequest(ADMIN));
+    const desk = run(canManageBeds, mockRequest(RECEPTIONIST));
+    assert.equal(admin.nextCalled, true);
+    assert.equal(desk.nextCalled, false);
+    assert.equal(desk.res.statusCode, 403);
+    assert.deepEqual(desk.res.body, {
+      detail: "Only administrators can manage rooms and beds.",
+    });
   });
 });

@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  admissionRequiredMessage,
+  bedAssignedMessage,
+  bedMaintenanceMessage,
+  bedReleasedMessage,
   consultationStartedMessage,
   formatNotificationToken,
   isInternalDisplayName,
@@ -42,6 +46,22 @@ describe("notification messages", () => {
     assert.deepEqual(consultationStartedMessage("Kiran Desai", "0012", 1), {
       title: "Consultation started",
       message: "Consultation for Kiran Desai (visit #1, token 0012) has started.",
+    });
+    assert.deepEqual(bedAssignedMessage("Priya Shah", "0001", 1, "101", "A"), {
+      title: "Bed assigned",
+      message: "Priya Shah was assigned to bed A in room 101 (visit #1, token 0001).",
+    });
+    assert.deepEqual(bedReleasedMessage("Priya Shah", "0001", 1, "101", "A"), {
+      title: "Bed released",
+      message: "Priya Shah was released from bed A in room 101 (visit #1, token 0001).",
+    });
+    assert.deepEqual(bedMaintenanceMessage("101", "A"), {
+      title: "Bed marked for maintenance",
+      message: "Bed A in room 101 was marked for maintenance.",
+    });
+    assert.deepEqual(admissionRequiredMessage("Priya Shah", "0001", 1), {
+      title: "Admission required",
+      message: "Priya Shah requires admission (visit #1, token 0001).",
     });
     assert.deepEqual(receptionistActivatedMessage("Priya Shah"), {
       title: "Receptionist activated",

@@ -60,6 +60,7 @@ export const ROUTES = {
   ADMIN_PROFILE: '/admin/profile',
   ADMIN_SETTINGS: '/admin/settings',
   ADMIN_NOTIFICATIONS: '/admin/notifications',
+  ADMIN_BEDS: '/admin/beds',
   RECEPTION_DASHBOARD: '/reception/dashboard',
   RECEPTION_PATIENTS: '/reception/patients',
   RECEPTION_PATIENTS_ADD: '/reception/patients/new',
@@ -67,6 +68,7 @@ export const ROUTES = {
   RECEPTION_PATIENT_DETAIL: '/reception/patients/:id',
   RECEPTION_PROFILE: '/reception/profile',
   RECEPTION_NOTIFICATIONS: '/reception/notifications',
+  RECEPTION_BEDS: '/reception/beds',
 }
 
 export const GENDERS = [
@@ -110,7 +112,19 @@ export const PATIENT_FILTERS = [
   { value: 'today', label: "Today's Patients" },
   { value: 'waiting', label: 'Waiting' },
   { value: 'completed', label: 'Completed' },
+  { value: 'admission_required', label: 'Admission Required' },
 ]
+
+export const CARE_TYPE = {
+  OUTPATIENT: 'Outpatient',
+  INPATIENT: 'Inpatient',
+}
+
+export const ADMISSION_STATUS = {
+  REQUIRED: 'Admission Required',
+  ADMITTED: 'Admitted',
+  DISCHARGED: 'Discharged',
+}
 
 export const CONSULTATION_TABS = {
   WAITING: 'waiting',
@@ -135,3 +149,44 @@ export const ROLE_DASHBOARD = {
 }
 
 export const CLINIC_NAME = 'Doctor Clinic'
+
+export const ROOM_TYPE_OPTIONS = [
+  { value: 'GENERAL', label: 'General' },
+  { value: 'PRIVATE', label: 'Private' },
+  { value: 'SEMI_PRIVATE', label: 'Semi Private' },
+  { value: 'ICU', label: 'ICU' },
+  { value: 'EMERGENCY', label: 'Emergency' },
+  { value: 'WARD', label: 'Ward' },
+  { value: 'OTHER', label: 'Other' },
+]
+
+export const BED_STATUS = {
+  AVAILABLE: 'available',
+  OCCUPIED: 'occupied',
+  RESERVED: 'reserved',
+  MAINTENANCE: 'maintenance',
+  BLOCKED: 'blocked',
+}
+
+export const BED_STATUS_LABELS = {
+  available: 'Available',
+  occupied: 'Occupied',
+  reserved: 'Reserved',
+  maintenance: 'Maintenance',
+  blocked: 'Blocked',
+}
+
+export const BED_STATUS_FILTER_OPTIONS = [
+  { value: 'available', label: 'Available' },
+  { value: 'occupied', label: 'Occupied' },
+  { value: 'reserved', label: 'Reserved' },
+  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'blocked', label: 'Blocked' },
+]
+
+export const BED_STATUS_WRITE_OPTIONS = [
+  { value: 'available', label: 'Available' },
+  { value: 'reserved', label: 'Reserved' },
+  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'blocked', label: 'Blocked' },
+]

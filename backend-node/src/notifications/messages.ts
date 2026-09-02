@@ -154,6 +154,53 @@ export function consultationCancelledMessage(
   };
 }
 
+export function bedAssignedMessage(
+  name: string,
+  token: string,
+  visitNumber: number,
+  roomNumber: string,
+  bedNumber: string,
+): { title: string; message: string } {
+  return {
+    title: "Bed assigned",
+    message: `${name} was assigned to bed ${bedNumber} in room ${roomNumber} (visit #${visitNumber}, token ${token}).`,
+  };
+}
+
+export function bedReleasedMessage(
+  name: string,
+  token: string,
+  visitNumber: number,
+  roomNumber: string,
+  bedNumber: string,
+): { title: string; message: string } {
+  return {
+    title: "Bed released",
+    message: `${name} was released from bed ${bedNumber} in room ${roomNumber} (visit #${visitNumber}, token ${token}).`,
+  };
+}
+
+export function bedMaintenanceMessage(
+  roomNumber: string,
+  bedNumber: string,
+): { title: string; message: string } {
+  return {
+    title: "Bed marked for maintenance",
+    message: `Bed ${bedNumber} in room ${roomNumber} was marked for maintenance.`,
+  };
+}
+
+export function admissionRequiredMessage(
+  name: string,
+  token: string,
+  visitNumber: number,
+): { title: string; message: string } {
+  return {
+    title: "Admission required",
+    message: `${name} requires admission (visit #${visitNumber}, token ${token}).`,
+  };
+}
+
 export function receptionistAddedMessage(name: string): { title: string; message: string } {
   return {
     title: "Receptionist added",

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { patientService } from '@/api/patients'
+import { AdmissionStatusBadge, CareTypeBadge } from '@/components/patients/AdmissionBadges'
 import { PatientStatusBadge } from '@/components/patients/PatientStatusBadge'
 import { ViewIconButton, EditIconButton, DeleteIconButton } from '@/components/patients/ViewIconButton'
 import { Button, ConfirmDialog, DatePicker, getAppliedSearchFromInput, ListStatus, RefreshButton, Select } from '@/components/ui'
@@ -115,7 +116,7 @@ export function PatientListPage({
     setFilter(nextFilter)
     if (nextFilter === 'today') {
       setDateFilter(getTodayISO())
-    } else if (nextFilter === 'waiting' || nextFilter === 'completed') {
+    } else if (nextFilter === 'waiting' || nextFilter === 'completed' || nextFilter === 'admission_required') {
       setStatusFilter('')
     } else {
       setDateFilter('')
@@ -156,7 +157,7 @@ export function PatientListPage({
     } else if (value === '') {
       setDateFilter('')
     }
-    if (value === 'waiting' || value === 'completed') {
+    if (value === 'waiting' || value === 'completed' || value === 'admission_required') {
       setStatusFilter('')
     }
   }
@@ -358,6 +359,12 @@ export function PatientListPage({
                   <PatientStatusBadge status={p.status} />
                 </div>
                 <dl className="mt-3 space-y-1.5 text-sm">
+                  {(p.care_type || p.admission_status) && (
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <CareTypeBadge careType={p.care_type} />
+                      <AdmissionStatusBadge status={p.admission_status} />
+                    </div>
+                  )}
                   <div className="flex justify-between gap-3">
                     <dt className="text-muted">Mobile</dt>
                     <dd className="text-foreground">{p.mobile}</dd>
@@ -385,7 +392,7 @@ export function PatientListPage({
 
           <div className="hidden overflow-hidden rounded-2xl border border-border bg-card shadow-sm lg:block">
             <div className="table-scroll">
-              <table className="w-full min-w-[64rem] text-left text-sm">
+              <table className="w-full min-w-[72rem] text-left text-sm">
                 <thead className="border-b border-border bg-surface">
                   <tr>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Token</th>
@@ -393,6 +400,8 @@ export function PatientListPage({
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Name</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Mobile</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Age/Gender</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Patient Type</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Admission</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Status</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Created By</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Registered</th>
@@ -416,6 +425,12 @@ export function PatientListPage({
                       <td className="whitespace-nowrap px-4 py-4 text-muted sm:px-6">{p.mobile}</td>
                       <td className="whitespace-nowrap px-4 py-4 text-muted sm:px-6">
                         {p.age} / {p.gender}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 sm:px-6">
+                        {p.care_type ? <CareTypeBadge careType={p.care_type} /> : '—'}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-4 sm:px-6">
+                        {p.admission_status ? <AdmissionStatusBadge status={p.admission_status} /> : '—'}
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 sm:px-6">
                         <PatientStatusBadge status={p.status} />

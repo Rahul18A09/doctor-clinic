@@ -1,8 +1,9 @@
 import type { Request, RequestHandler, Response } from "express";
 import { Router } from "express";
 
+import { findActiveBedForPatient, releaseActiveBedForPatient } from "../beds/operations";
 import { toDjangoIso } from "../auth/iso";
-import { NotificationType, UserRole, type Gender } from "../constants";
+import { AdmissionStatus, CareType, NotificationType, UserRole, type Gender } from "../constants";
 import { hasFieldErrors, type FieldErrors } from "../http/errors";
 import { buildPaginationMeta, parsePagination } from "../http/pagination";
 import {
@@ -26,6 +27,7 @@ import {
 } from "../http/validation";
 import { authenticate } from "../middleware/authenticate";
 import {
+  canAssignBeds,
   canCreatePatients,
   canDeletePatients,
   canUpdatePatients,
@@ -37,7 +39,9 @@ import {
   patientNotificationSubject,
   returningPatientMessage,
 } from "../notifications/messages";
+import { notifyBedReleased } from "../notifications/bedEvents";
 import { RECEPTIONIST_ROLES, notifyIfEnabled, notifyQueueWaiting } from "../notifications/notifyStaff";
+import { markPatientDischargedIfAdmitted, NOT_ADMITTED_GUARD } from "../patients/admission";
 import { buildPatientListFilter } from "../patients/filters";
 import { serializePatient } from "../patients/serializePatient";
 import { getPatientStats } from "../patients/stats";
@@ -347,6 +351,37 @@ const deletePatient: RequestHandler = async (req: Request, res: Response): Promi
   successResponse(res, { message: "Patient deleted successfully." });
 };
 
+const dischargePatient: RequestHandler = async (req: Request, res: Response): Promise<void> => {
+  const patient = await findPatientOr404(String(req.params["pk"] ?? ""), res);
+  if (!patient) {
+    return;
+  }
+  if (patient.care_type !== CareType.INPATIENT) {
+    errorResponse(res, { message: NOT_ADMITTED_GUARD, statusCode: 400 });
+    return;
+  }
+
+  const activeBed = await findActiveBedForPatient(String(patient._id));
+  const isAdmitted = patient.admission_status === AdmissionStatus.ADMITTED || Boolean(activeBed);
+  if (!isAdmitted) {
+    errorResponse(res, { message: NOT_ADMITTED_GUARD, statusCode: 400 });
+    return;
+  }
+
+  const released = await releaseActiveBedForPatient(String(patient._id));
+  if (released) {
+    await notifyBedReleased(released.bed, released.previousPatientId);
+  } else {
+    await markPatientDischargedIfAdmitted(String(patient._id));
+  }
+
+  const updated = await Patient.findById(patient._id).exec();
+  successResponse(res, {
+    message: "Patient discharged successfully.",
+    data: { patient: serializePatient(updated ?? patient) },
+  });
+};
+
 const getStats: RequestHandler = async (_req: Request, res: Response): Promise<void> => {
   successResponse(res, {
     message: "Patient stats retrieved successfully.",
@@ -463,6 +498,8 @@ patientRouter.get("/stats/", authenticate, canViewPatients, getStats);
 patientRouter.get("/stats", authenticate, canViewPatients, getStats);
 patientRouter.get("/lookup/", authenticate, canViewPatients, lookupPatient);
 patientRouter.get("/lookup", authenticate, canViewPatients, lookupPatient);
+patientRouter.post("/:pk/discharge/", authenticate, canAssignBeds, dischargePatient);
+patientRouter.post("/:pk/discharge", authenticate, canAssignBeds, dischargePatient);
 patientRouter.get("/:pk/", authenticate, canViewPatients, getPatient);
 patientRouter.get("/:pk", authenticate, canViewPatients, getPatient);
 patientRouter.put("/:pk/", authenticate, canUpdatePatients, updatePatient);
