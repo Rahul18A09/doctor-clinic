@@ -1,11 +1,9 @@
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import QRCode from 'react-qr-code'
-import { Button } from '@/components/ui'
 import { ROUTES } from '@/utils/constants'
 import { getPublicQueueUrl } from '@/utils/publicUrl'
 
 export function PatientQueueQRCard() {
-  const navigate = useNavigate()
   const queueUrl = getPublicQueueUrl()
 
   return (
@@ -13,7 +11,7 @@ export function PatientQueueQRCard() {
       <div className="flex flex-1 flex-col">
         <h3 className="text-lg font-semibold text-foreground">Patient Queue QR</h3>
         <p className="mt-2 text-sm text-muted">
-          Scan to view today&apos;s live queue and token status.
+          Scan the QR code to view today&apos;s live token status on your mobile device.
         </p>
 
         <a
@@ -34,11 +32,21 @@ export function PatientQueueQRCard() {
           />
         </a>
 
-        <div className="mt-4 flex justify-center">
-          <Button type="button" onClick={() => navigate(ROUTES.QUEUE)}>
-            Open Queue
-          </Button>
-        </div>
+        <p className="mt-3 break-all text-center text-xs text-muted">{queueUrl}</p>
+        <p className="mt-1 text-center text-xs text-muted">
+          On a phone, open the HTTPS URL (include https://). Chrome only
+          installs the PWA after the mkcert CA is trusted.
+        </p>
+        <p className="mt-1 text-center text-xs text-muted">
+          Or open{' '}
+          <Link
+            to={ROUTES.QUEUE}
+            className="font-medium text-primary-600 hover:underline"
+          >
+            /queue
+          </Link>{' '}
+          on this device
+        </p>
       </div>
 
       <div className="mt-6 flex items-start gap-3 rounded-xl bg-primary-50 px-4 py-3">
@@ -57,7 +65,7 @@ export function PatientQueueQRCard() {
           />
         </svg>
         <p className="text-sm text-primary-800">
-          Patients can scan this QR code to check their token status and current queue.
+          Patients can scan this QR code to see their token status and current queue.
         </p>
       </div>
     </div>
