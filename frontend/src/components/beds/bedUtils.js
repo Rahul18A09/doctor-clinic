@@ -12,6 +12,27 @@ export function roomTypeLabel(value) {
   return ROOM_TYPE_OPTIONS.find((option) => option.value === value)?.label || value || '—'
 }
 
+export const ROOM_TYPE_FORM_OPTIONS = ROOM_TYPE_OPTIONS.filter((option) => option.value !== 'WARD')
+
+export function roomTypeBadgeClass(value) {
+  switch (value) {
+    case 'GENERAL':
+      return 'bg-blue-50 text-blue-700'
+    case 'PRIVATE':
+      return 'bg-purple-50 text-purple-700'
+    case 'SEMI_PRIVATE':
+      return 'bg-slate-100 text-slate-600'
+    case 'ICU':
+      return 'bg-indigo-50 text-indigo-800'
+    case 'EMERGENCY':
+      return 'bg-red-50 text-red-700'
+    case 'WARD':
+      return 'bg-teal-50 text-teal-700'
+    default:
+      return 'bg-gray-100 text-gray-600'
+  }
+}
+
 export function bedStatusLabel(status) {
   return BED_STATUS_LABELS[status] || status || '—'
 }

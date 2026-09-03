@@ -1,8 +1,7 @@
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
-import { applyApiFieldErrors } from '@/components/beds/bedUtils'
+import { applyApiFieldErrors, ROOM_TYPE_FORM_OPTIONS } from '@/components/beds/bedUtils'
 import { Button, Input, Modal, ModalSpinner, Select } from '@/components/ui'
-import { ROOM_TYPE_OPTIONS } from '@/utils/constants'
 
 export function RoomFormModal({
   open,
@@ -76,7 +75,7 @@ export function RoomFormModal({
           <Select
             id="room_type"
             label="Room Type"
-            options={ROOM_TYPE_OPTIONS}
+            options={ROOM_TYPE_FORM_OPTIONS}
             placeholder="Select type"
             error={errors.room_type}
             {...register('room_type', { required: 'Room type is required' })}

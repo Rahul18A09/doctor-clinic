@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 const SIZE_CLASSES = {
   sm: 'max-w-md',
@@ -24,30 +25,38 @@ export function Modal({
       }
     }
 
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', handleEscape)
+    }
   }, [open, closeOnEscape, loading, onClose])
 
-  if (!open) return null
+  if (!open || typeof document === 'undefined') return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-      <div
-        className="absolute inset-0"
-        style={{ backgroundColor: 'rgba(0, 0, 0, 0.35)' }}
-        onClick={() => {
-          if (closeOnOverlay && !loading) onClose()
-        }}
-        aria-hidden="true"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className={`relative w-full ${SIZE_CLASSES[size]} animate-in`}
-      >
-        {children}
+  return createPortal(
+    <div className="fixed inset-0 z-50 overflow-y-auto overscroll-contain">
+      <div className="flex min-h-[100dvh] items-center justify-center p-4 sm:p-6">
+        <div
+          className="absolute inset-0"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.35)' }}
+          onClick={() => {
+            if (closeOnOverlay && !loading) onClose()
+          }}
+          aria-hidden="true"
+        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          className={`relative z-10 my-auto min-h-0 w-full max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain sm:max-h-[calc(100dvh-3rem)] ${SIZE_CLASSES[size]}`}
+        >
+          {children}
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

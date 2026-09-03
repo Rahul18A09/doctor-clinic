@@ -3,11 +3,12 @@ import { patientService } from '@/api/patients'
 import { bedService, getBedsErrorMessage, roomService } from '@/api/beds'
 import { AssignBedModal } from '@/components/beds/AssignBedModal'
 import { BedFormModal } from '@/components/beds/BedFormModal'
+import { BedStatCard } from '@/components/beds/BedStatCard'
 import { ChangeStatusModal } from '@/components/beds/ChangeStatusModal'
+import { ROOM_TYPE_FORM_OPTIONS } from '@/components/beds/bedUtils'
 import { RoomCard } from '@/components/beds/RoomCard'
 import { RoomDetailModal } from '@/components/beds/RoomDetailModal'
 import { RoomFormModal } from '@/components/beds/RoomFormModal'
-import { StatCard } from '@/components/dashboard/StatCard'
 import {
   Button,
   ConfirmDialog,
@@ -21,8 +22,16 @@ import { useNotifications } from '@/hooks/useNotifications'
 import {
   BED_STATUS,
   BED_STATUS_FILTER_OPTIONS,
-  ROOM_TYPE_OPTIONS,
 } from '@/utils/constants'
+import {
+  LuBedDouble,
+  LuCalendar,
+  LuPlus,
+  LuSearch,
+  LuUser,
+  LuWrench,
+  LuBuilding2,
+} from 'react-icons/lu'
 
 const EMPTY_SUMMARY = {
   total: 0,
@@ -33,25 +42,65 @@ const EMPTY_SUMMARY = {
   blocked: 0,
 }
 
-const SUMMARY_CARDS = [
-  { key: 'total', title: 'Total Beds', color: 'primary', status: '' },
-  { key: 'available', title: 'Available', color: 'green', status: BED_STATUS.AVAILABLE },
-  { key: 'occupied', title: 'Occupied', color: 'blue', status: BED_STATUS.OCCUPIED },
-  { key: 'reserved', title: 'Reserved', color: 'amber', status: BED_STATUS.RESERVED },
-  { key: 'maintenance', title: 'Maintenance', color: 'primary', status: BED_STATUS.MAINTENANCE },
-]
+const ICON_CLASS = 'h-5 w-5 sm:h-6 sm:w-6'
 
-function bedIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={1.8}
-        d="M3 18V9a2 2 0 012-2h4a3 3 0 016 0h4a2 2 0 012 2v9M3 14h18M7 18v2M17 18v2"
-      />
-    </svg>
-  )
+function getSummaryCards(canManage) {
+  const bedCards = [
+    {
+      key: 'total',
+      title: 'Total Beds',
+      hint: 'All configured beds',
+      tone: canManage ? 'purple' : 'green',
+      status: '',
+      icon: <LuBedDouble className={ICON_CLASS} aria-hidden="true" />,
+    },
+    {
+      key: 'available',
+      title: 'Available',
+      hint: 'Beds available',
+      tone: 'green',
+      status: BED_STATUS.AVAILABLE,
+      icon: <LuBedDouble className={ICON_CLASS} aria-hidden="true" />,
+    },
+    {
+      key: 'occupied',
+      title: 'Occupied',
+      hint: 'Beds occupied',
+      tone: 'sky',
+      status: BED_STATUS.OCCUPIED,
+      icon: <LuUser className={ICON_CLASS} aria-hidden="true" />,
+    },
+    {
+      key: 'reserved',
+      title: 'Reserved',
+      hint: 'Beds reserved',
+      tone: 'orange',
+      status: BED_STATUS.RESERVED,
+      icon: <LuCalendar className={ICON_CLASS} aria-hidden="true" />,
+    },
+    {
+      key: 'maintenance',
+      title: 'Maintenance',
+      hint: 'Under maintenance',
+      tone: 'red',
+      status: BED_STATUS.MAINTENANCE,
+      icon: <LuWrench className={ICON_CLASS} aria-hidden="true" />,
+    },
+  ]
+
+  if (!canManage) return bedCards
+
+  return [
+    {
+      key: 'rooms',
+      title: 'Total Rooms',
+      hint: 'Rooms created',
+      tone: 'blue',
+      status: '',
+      icon: <LuBuilding2 className={ICON_CLASS} aria-hidden="true" />,
+    },
+    ...bedCards,
+  ]
 }
 
 async function loadPatientsByIds(ids) {
@@ -79,6 +128,7 @@ export function BedManagementPage({
   const skipAutoFetchRef = useRef(false)
 
   const [summary, setSummary] = useState(EMPTY_SUMMARY)
+  const [totalRooms, setTotalRooms] = useState(0)
   const [rooms, setRooms] = useState([])
   const [patientsById, setPatientsById] = useState({})
   const [floors, setFloors] = useState([])
@@ -193,7 +243,9 @@ export function BedManagementPage({
         const patientIds = filtered.flatMap((row) => row.beds.map((bed) => bed.patient_id))
         const patients = await loadPatientsByIds(patientIds)
 
+        const floorPayload = floorRes.data?.data
         setSummary(summaryRes.data?.data?.summary || EMPTY_SUMMARY)
+        setTotalRooms(floorPayload?.pagination?.total ?? (floorPayload?.results || []).length)
         setRooms(filtered)
         setPatientsById(patients)
         setPagination(paginationMeta)
@@ -376,91 +428,96 @@ export function BedManagementPage({
 
   const floorOptions = floors.map((value) => ({ value, label: `Floor ${value}` }))
   const showListStatus = rooms.length === 0
+  const summaryCards = getSummaryCards(canManage)
+  const summaryGridClass = canManage
+    ? 'grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6'
+    : 'grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5'
 
   return (
     <div className="space-y-6 animate-in">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h2 className="text-2xl font-bold text-foreground">{title}</h2>
           <p className="mt-1 text-sm text-muted">{subtitle}</p>
         </div>
         {canManage && (
-          <Button className="w-full sm:w-auto" onClick={() => setRoomForm({ open: true, room: null })}>
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
+          <Button className="w-full shrink-0 sm:w-auto" onClick={() => setRoomForm({ open: true, room: null })}>
+            <LuPlus className="h-4 w-4" aria-hidden="true" />
             Add Room
           </Button>
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        {SUMMARY_CARDS.map((card) => (
-          <button
+      <div className={summaryGridClass}>
+        {summaryCards.map((card) => (
+          <BedStatCard
             key={card.key}
-            type="button"
+            title={card.title}
+            value={loading ? '—' : String(card.key === 'rooms' ? totalRooms : summary[card.key] ?? 0)}
+            hint={card.hint}
+            tone={card.tone}
+            icon={card.icon}
+            active={bedStatus === card.status && card.key !== 'rooms'}
             onClick={() => {
               setPage(1)
               setBedStatus(card.status)
             }}
-            className="block h-full min-w-0 text-left"
-          >
-            <StatCard
-              title={card.title}
-              value={loading ? '—' : String(summary[card.key] ?? 0)}
-              color={card.color}
-              icon={bedIcon()}
-            />
-          </button>
+          />
         ))}
       </div>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start">
-        <form onSubmit={handleSearch} className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row">
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Search rooms..."
-            className="min-w-0 flex-1 rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-          />
-          <div className="flex shrink-0 flex-wrap gap-3">
-            <Button type="submit" variant="secondary" className="flex-1 sm:flex-none">
-              Search
-            </Button>
-            <RefreshButton onClick={handleRefresh} loading={refreshing} />
+      <div className="rounded-2xl border border-border bg-card p-3 shadow-sm sm:p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <form onSubmit={handleSearch} className="min-w-0 flex-1">
+            <label className="relative block">
+              <LuSearch
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
+                placeholder="Search room or bed..."
+                className="w-full rounded-xl border border-border bg-white py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              />
+            </label>
+          </form>
+          <div className={`flex flex-col gap-3 sm:flex-row sm:items-center ${canManage ? 'lg:contents' : ''}`}>
+            {!canManage && <RefreshButton onClick={handleRefresh} loading={refreshing} className="w-full sm:w-auto" />}
+            <Select
+              options={ROOM_TYPE_FORM_OPTIONS}
+              placeholder="All Room Types"
+              value={roomType}
+              onChange={(event) => {
+                setPage(1)
+                setRoomType(event.target.value)
+              }}
+              className="w-full min-w-0 sm:flex-1 lg:w-44 lg:flex-none"
+            />
+            <Select
+              options={floorOptions}
+              placeholder="All Floors"
+              value={floor}
+              onChange={(event) => {
+                setPage(1)
+                setFloor(event.target.value)
+              }}
+              className="w-full min-w-0 sm:flex-1 lg:w-36 lg:flex-none"
+            />
+            <Select
+              options={BED_STATUS_FILTER_OPTIONS}
+              placeholder="All Bed Statuses"
+              value={bedStatus}
+              onChange={(event) => {
+                setPage(1)
+                setBedStatus(event.target.value)
+              }}
+              className="w-full min-w-0 sm:flex-1 lg:w-44 lg:flex-none"
+            />
+            {canManage && <RefreshButton onClick={handleRefresh} loading={refreshing} className="w-full sm:w-auto" />}
           </div>
-        </form>
-        <Select
-          options={ROOM_TYPE_OPTIONS}
-          placeholder="All Room Types"
-          value={roomType}
-          onChange={(event) => {
-            setPage(1)
-            setRoomType(event.target.value)
-          }}
-          className="w-full min-w-0 lg:w-auto lg:min-w-[11rem]"
-        />
-        <Select
-          options={floorOptions}
-          placeholder="All Floors"
-          value={floor}
-          onChange={(event) => {
-            setPage(1)
-            setFloor(event.target.value)
-          }}
-          className="w-full min-w-0 lg:w-auto lg:min-w-[10rem]"
-        />
-        <Select
-          options={BED_STATUS_FILTER_OPTIONS}
-          placeholder="All Bed Statuses"
-          value={bedStatus}
-          onChange={(event) => {
-            setPage(1)
-            setBedStatus(event.target.value)
-          }}
-          className="w-full min-w-0 lg:w-auto lg:min-w-[11rem]"
-        />
+        </div>
       </div>
 
       {showListStatus ? (
@@ -618,7 +675,7 @@ export function AdminBedsPage() {
   return (
     <BedManagementPage
       canManage
-      title="Beds"
+      title="Beds Management"
       subtitle="Manage rooms, beds, occupancy, and availability."
     />
   )
