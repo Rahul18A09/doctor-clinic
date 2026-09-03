@@ -810,7 +810,7 @@ export const openApiDocument: JsonObject = {
           { name: "filter", in: "query", schema: { type: "string", enum: ["waiting", "completed", "today", "admission_required"] } },
           { name: "date", in: "query", schema: { type: "string", format: "date" } },
           { name: "care_type", in: "query", schema: { type: "string", enum: ["Outpatient", "Inpatient"] } },
-          { name: "admission_status", in: "query", schema: { type: "string", enum: ["Admission Required", "Admitted", "Discharged"] } },
+          { name: "admission_status", in: "query", schema: { type: "string", enum: ["Not Required", "Pending", "Admitted", "Discharged", "Admission Required"] } },
         ],
         responses: {
           "200": {
@@ -1130,7 +1130,7 @@ export const openApiDocument: JsonObject = {
         summary: "Set Outpatient or Inpatient",
         operationId: "setPatientCareType",
         description:
-          "Admin only. Sets `care_type` to Outpatient or Inpatient. Inpatient without a bed becomes Admission Required. Does not assign a bed. Cannot change to Outpatient while Admitted.",
+          "Admin only. Sets `care_type` to Outpatient or Inpatient. Inpatient without a bed becomes Pending. Does not assign a bed. Completing the visit does not discharge an Inpatient or release a bed. Cannot change to Outpatient while Admitted.",
         requestBody: {
           required: true,
           content: {
@@ -2631,10 +2631,20 @@ export const openApiDocument: JsonObject = {
           care_type: { type: "string", description: "Outpatient or Inpatient. Empty until the doctor decides." },
           admission_status: {
             type: "string",
-            description: "Admission Required, Admitted, or Discharged. Empty for Outpatient.",
+            description: "Not Required, Pending, Admitted, or Discharged. Empty until the doctor sets patient type. Legacy Admission Required is returned as Pending.",
           },
           admitted_at: { type: "string", nullable: true },
           discharged_at: { type: "string", nullable: true },
+          assigned_bed: {
+            type: "object",
+            nullable: true,
+            description: "Active bed for an admitted patient, formatted as Room 101 · Bed 101-A.",
+            properties: {
+              room_number: { type: "string" },
+              bed_number: { type: "string" },
+              label: { type: "string" },
+            },
+          },
         },
       },
       PatientCreateRequest: {

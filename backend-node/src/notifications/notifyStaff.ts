@@ -1,7 +1,8 @@
 import { NotificationType, UserRole, type NotificationType as NotificationTypeValue, type UserRole as Role } from "../constants";
 import { getOrCreateSettings } from "../models/settings.model";
-import { Notification } from "../models/notification.model";
+import { Notification, type NotificationDocument } from "../models/notification.model";
 import { User } from "../models/user.model";
+import { emitNotificationCreated, emitNotificationRemoved } from "../realtime/socket";
 import type { NotificationSettings } from "../settings/defaults";
 import {
   isInternalNotificationText,
@@ -9,6 +10,7 @@ import {
   returningPatientWaitingMessage,
   type PatientNotificationSubject,
 } from "./messages";
+import { serializeNotification } from "./serializeNotification";
 
 export const CLINIC_ROLES: Role[] = [UserRole.ADMIN, UserRole.RECEPTIONIST];
 export const ADMIN_ROLES: Role[] = [UserRole.ADMIN];
@@ -75,6 +77,16 @@ export async function notifyStaff(input: StaffNotificationInput): Promise<number
     updated_at: now,
   }));
   const created = await Notification.insertMany(docs);
+  for (const doc of created) {
+    try {
+      emitNotificationCreated(
+        doc.user_id,
+        serializeNotification(doc as NotificationDocument),
+      );
+    } catch (error) {
+      console.error("Failed to emit notification:", error);
+    }
+  }
   return created.length;
 }
 
@@ -108,10 +120,19 @@ export function queueRelatedId(patientId: string): string {
 }
 
 export async function resolveQueueNotifications(patientId: string): Promise<number> {
-  const result = await Notification.deleteMany({
+  const filter = {
     type: NotificationType.QUEUE,
     related_id: queueRelatedId(patientId),
-  }).exec();
+  };
+  const existing = await Notification.find(filter).select({ _id: 1, user_id: 1 }).lean().exec();
+  const result = await Notification.deleteMany(filter).exec();
+  for (const row of existing) {
+    try {
+      emitNotificationRemoved(String(row.user_id), String(row._id));
+    } catch (error) {
+      console.error("Failed to emit notification removal:", error);
+    }
+  }
   return result.deletedCount ?? 0;
 }
 

@@ -22,10 +22,10 @@ function MedicalWarningIcon() {
 }
 
 const COMPLETION_NOTES = [
-  'Patient status will change to COMPLETED.',
-  'The patient will move to the Completed list.',
+  'Visit status will change to Completed.',
+  'The patient will move to the Visit Completed list.',
+  'This does not discharge an Inpatient or release a bed.',
   'Receptionist can no longer edit this patient.',
-  'This action cannot be undone.',
 ]
 
 export function CompleteTreatmentDialog({

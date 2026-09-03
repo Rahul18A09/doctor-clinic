@@ -2,14 +2,15 @@ import {
   AdmissionStatus,
   CareType,
   PatientStatus,
+  isAdmissionPending,
   type AdmissionStatus as AdmissionStatusValue,
   type CareType as CareTypeValue,
 } from "../constants";
 import { Patient, type PatientDocument } from "../models/patient.model";
 
-export const ONLY_INPATIENT_ASSIGN = "Only inpatients who require admission can be assigned a bed.";
+export const ONLY_INPATIENT_ASSIGN = "Only inpatients with admission pending can be assigned a bed.";
 export const ALREADY_DISCHARGED = "This visit has already been discharged.";
-export const CARE_TYPE_COMPLETED_GUARD = "Patient type cannot be changed after treatment is completed.";
+export const CARE_TYPE_COMPLETED_GUARD = "Patient type cannot be changed after the visit is completed.";
 export const CARE_TYPE_ADMITTED_GUARD = "Discharge the patient before changing to Outpatient.";
 export const NOT_ADMITTED_GUARD = "This patient is not currently admitted.";
 
@@ -26,7 +27,7 @@ export function canReceiveBedAssignment(patient: {
   if (patient.admission_status === AdmissionStatus.ADMITTED) {
     return { ok: false, message: "This patient is already assigned to another bed." };
   }
-  if (patient.admission_status && patient.admission_status !== AdmissionStatus.REQUIRED) {
+  if (patient.admission_status && !isAdmissionPending(patient.admission_status)) {
     return { ok: false, message: ONLY_INPATIENT_ASSIGN };
   }
   return { ok: true };
@@ -46,8 +47,13 @@ export function applyCareTypeDecision(
     }
     return {
       ok: true,
-      patch: { care_type: CareType.OUTPATIENT },
-      unset: ["admission_status", "admitted_at", "discharged_at"],
+      patch: {
+        care_type: CareType.OUTPATIENT,
+        admission_status: AdmissionStatus.NOT_REQUIRED,
+        admitted_at: null,
+        discharged_at: null,
+      },
+      unset: [],
       notifyRequired: false,
     };
   }
@@ -61,19 +67,19 @@ export function applyCareTypeDecision(
     };
   }
 
-  const alreadyRequired =
-    patient.care_type === CareType.INPATIENT && patient.admission_status === AdmissionStatus.REQUIRED;
+  const alreadyPending =
+    patient.care_type === CareType.INPATIENT && isAdmissionPending(patient.admission_status);
 
   return {
     ok: true,
     patch: {
       care_type: CareType.INPATIENT,
-      admission_status: AdmissionStatus.REQUIRED as AdmissionStatusValue,
+      admission_status: AdmissionStatus.PENDING as AdmissionStatusValue,
       admitted_at: null,
       discharged_at: null,
     },
     unset: [],
-    notifyRequired: !alreadyRequired,
+    notifyRequired: !alreadyPending,
   };
 }
 

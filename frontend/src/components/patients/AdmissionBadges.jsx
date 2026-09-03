@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/Badge'
-import { ADMISSION_STATUS, CARE_TYPE } from '@/utils/constants'
+import { ADMISSION_STATUS, CARE_TYPE, admissionStatusLabel, isAdmissionPending } from '@/utils/constants'
 
 export function CareTypeBadge({ careType }) {
   if (!careType) return null
@@ -10,11 +10,14 @@ export function CareTypeBadge({ careType }) {
 
 export function AdmissionStatusBadge({ status }) {
   if (!status) return null
+  const label = admissionStatusLabel(status)
   const variant =
     status === ADMISSION_STATUS.ADMITTED
       ? 'success'
-      : status === ADMISSION_STATUS.REQUIRED
+      : isAdmissionPending(status)
         ? 'warning'
-        : 'default'
-  return <Badge variant={variant}>{status}</Badge>
+        : status === ADMISSION_STATUS.DISCHARGED
+          ? 'default'
+          : 'default'
+  return <Badge variant={variant}>{label}</Badge>
 }

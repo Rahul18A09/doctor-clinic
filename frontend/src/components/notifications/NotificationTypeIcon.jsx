@@ -88,7 +88,7 @@ export function getNotificationTypeVisual(type, title) {
   if (lower === 'bed assigned' || lower === 'bed released' || lower === 'bed marked for maintenance') {
     return { icon: ICONS.bed, tone: 'bg-sky-100 text-sky-700', label }
   }
-  if (lower === 'admission required') {
+  if (lower === 'admission required' || lower === 'admission pending') {
     return { icon: ICONS.bed, tone: 'bg-amber-100 text-amber-700', label }
   }
 

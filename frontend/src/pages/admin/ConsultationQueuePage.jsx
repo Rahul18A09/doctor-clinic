@@ -360,8 +360,8 @@ export function ConsultationQueuePage() {
 
   const emptyMessages = {
     [CONSULTATION_TABS.WAITING]: 'No patients in the queue.',
-    [CONSULTATION_TABS.IN_CONSULTATION]: 'No patients currently in consultation.',
-    [CONSULTATION_TABS.COMPLETED]: 'No completed consultations found.',
+    [CONSULTATION_TABS.IN_CONSULTATION]: 'No patients currently in progress.',
+    [CONSULTATION_TABS.COMPLETED]: 'No completed visits found.',
   }
 
   const renderActions = (patient) => {
@@ -520,6 +520,9 @@ export function ConsultationQueuePage() {
                         <AdmissionStatusBadge status={p.admission_status} />
                       </div>
                     )}
+                    {p.assigned_bed?.label ? (
+                      <p className="mt-1 text-xs text-muted">{p.assigned_bed.label}</p>
+                    ) : null}
                   </div>
                   <PatientStatusBadge status={p.status} />
                 </div>
@@ -562,7 +565,7 @@ export function ConsultationQueuePage() {
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Visit</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Patient Name</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Patient Type</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Admission</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Admission Status</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Age</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Gender</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Chief Complaint</th>
@@ -575,7 +578,7 @@ export function ConsultationQueuePage() {
                         <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Completed At</th>
                       </>
                     )}
-                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Status</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Visit Status</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Action</th>
                   </tr>
                 </thead>
@@ -596,6 +599,9 @@ export function ConsultationQueuePage() {
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 sm:px-6">
                         {p.admission_status ? <AdmissionStatusBadge status={p.admission_status} /> : '—'}
+                        {p.assigned_bed?.label ? (
+                          <p className="mt-1 text-xs text-muted">{p.assigned_bed.label}</p>
+                        ) : null}
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-muted sm:px-6">{p.age}</td>
                       <td className="whitespace-nowrap px-4 py-4 text-muted sm:px-6">{p.gender}</td>

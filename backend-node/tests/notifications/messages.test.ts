@@ -60,8 +60,8 @@ describe("notification messages", () => {
       message: "Bed A in room 101 was marked for maintenance.",
     });
     assert.deepEqual(admissionRequiredMessage("Priya Shah", "0001", 1), {
-      title: "Admission required",
-      message: "Priya Shah requires admission (visit #1, token 0001).",
+      title: "Admission pending",
+      message: "Priya Shah has admission pending (visit #1, token 0001).",
     });
     assert.deepEqual(receptionistActivatedMessage("Priya Shah"), {
       title: "Receptionist activated",

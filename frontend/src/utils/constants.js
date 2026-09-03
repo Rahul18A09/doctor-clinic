@@ -97,22 +97,24 @@ export const PATIENT_STATUS = {
 
 export const PATIENT_STATUS_LABELS = {
   WAITING: 'Waiting',
-  IN_CONSULTATION: 'In Consultation',
+  IN_CONSULTATION: 'In Progress',
   COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
 }
 
 export const PATIENT_STATUS_FILTER_OPTIONS = [
   { value: 'WAITING', label: 'Waiting' },
-  { value: 'IN_CONSULTATION', label: 'In Consultation' },
+  { value: 'IN_CONSULTATION', label: 'In Progress' },
   { value: 'COMPLETED', label: 'Completed' },
+  { value: 'CANCELLED', label: 'Cancelled' },
 ]
 
 export const PATIENT_FILTERS = [
   { value: '', label: 'All Patients' },
   { value: 'today', label: "Today's Patients" },
   { value: 'waiting', label: 'Waiting' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'admission_required', label: 'Admission Required' },
+  { value: 'completed', label: 'Visit Completed' },
+  { value: 'admission_required', label: 'Admission Pending' },
 ]
 
 export const CARE_TYPE = {
@@ -121,9 +123,21 @@ export const CARE_TYPE = {
 }
 
 export const ADMISSION_STATUS = {
-  REQUIRED: 'Admission Required',
+  NOT_REQUIRED: 'Not Required',
+  PENDING: 'Pending',
   ADMITTED: 'Admitted',
   DISCHARGED: 'Discharged',
+  REQUIRED: 'Admission Required',
+}
+
+export function isAdmissionPending(status) {
+  return status === ADMISSION_STATUS.PENDING || status === ADMISSION_STATUS.REQUIRED
+}
+
+export function admissionStatusLabel(status) {
+  if (!status) return ''
+  if (isAdmissionPending(status)) return ADMISSION_STATUS.PENDING
+  return status
 }
 
 export const CONSULTATION_TABS = {
@@ -134,8 +148,8 @@ export const CONSULTATION_TABS = {
 
 export const CONSULTATION_TAB_LABELS = {
   [CONSULTATION_TABS.WAITING]: 'Waiting',
-  [CONSULTATION_TABS.IN_CONSULTATION]: 'In Consultation',
-  [CONSULTATION_TABS.COMPLETED]: 'Completed',
+  [CONSULTATION_TABS.IN_CONSULTATION]: 'In Progress',
+  [CONSULTATION_TABS.COMPLETED]: 'Visit Completed',
 }
 
 export const ROLES = {

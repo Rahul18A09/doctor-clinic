@@ -561,7 +561,7 @@ describe("doctor API", { timeout: 120_000 }, () => {
     assert.equal(occupied.body.data.bed.status, "occupied");
   });
 
-  it("PUT care-type is admin-only and sets Admission Required for Inpatient", async () => {
+  it("PUT care-type is admin-only and sets Pending for Inpatient", async () => {
     const patient = await createPatient({ patient_name: `${stamp} care-type` });
     const desk = await request(app)
       .put(`/api/v1/doctor/patients/${String(patient._id)}/care-type/`)
@@ -575,7 +575,7 @@ describe("doctor API", { timeout: 120_000 }, () => {
       .send({ care_type: "Inpatient" });
     assert.equal(inpatient.status, 200);
     assert.equal(inpatient.body.data.patient.care_type, "Inpatient");
-    assert.equal(inpatient.body.data.patient.admission_status, "Admission Required");
+    assert.equal(inpatient.body.data.patient.admission_status, "Pending");
 
     const outpatient = await request(app)
       .put(`/api/v1/doctor/patients/${String(patient._id)}/care-type/`)
@@ -583,7 +583,7 @@ describe("doctor API", { timeout: 120_000 }, () => {
       .send({ care_type: "Outpatient" });
     assert.equal(outpatient.status, 200);
     assert.equal(outpatient.body.data.patient.care_type, "Outpatient");
-    assert.equal(outpatient.body.data.patient.admission_status, "");
+    assert.equal(outpatient.body.data.patient.admission_status, "Not Required");
   });
 
   it("POST complete from IN_CONSULTATION keeps existing start and doctor", async () => {

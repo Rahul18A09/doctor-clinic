@@ -497,7 +497,7 @@ describe("bed management API", { timeout: 120_000 }, () => {
     assert.equal(outpatientAssign.status, 400);
     assert.equal(
       outpatientAssign.body.message,
-      "Only inpatients who require admission can be assigned a bed.",
+      "Only inpatients with admission pending can be assigned a bed.",
     );
 
     await Patient.findByIdAndUpdate(patientId, {

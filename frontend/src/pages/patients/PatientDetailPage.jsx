@@ -10,7 +10,7 @@ import { PatientStatusBadge } from '@/components/patients/PatientStatusBadge'
 import { BackButton, Button, ConfirmDialog } from '@/components/ui'
 import { useToast } from '@/context/ToastContext'
 import { useNotifications } from '@/hooks/useNotifications'
-import { ADMISSION_STATUS, CARE_TYPE, ROUTES } from '@/utils/constants'
+import { ADMISSION_STATUS, CARE_TYPE, isAdmissionPending, ROUTES } from '@/utils/constants'
 import { formatTokenForUi } from '@/utils/formatToken'
 
 function formatDate(iso) {
@@ -80,7 +80,7 @@ export function PatientDetailPage({ basePath, canEdit = false, isAdmin = false }
 
   const canAssign =
     Boolean(patient) &&
-    patient.admission_status === ADMISSION_STATUS.REQUIRED &&
+    isAdmissionPending(patient.admission_status) &&
     !assignment
   const canDischarge =
     Boolean(patient) &&
@@ -229,6 +229,10 @@ export function PatientDetailPage({ basePath, canEdit = false, isAdmin = false }
                 )
               }
             />
+            <DetailRow
+              label="Visit Status"
+              value={<PatientStatusBadge status={patient.status} />}
+            />
             <DetailRow label="Registered By" value={patient.created_by_name} />
             <DetailRow label="Registered At" value={formatDate(patient.created_at)} />
             <DetailRow label="Last Updated" value={formatDate(patient.updated_at)} />
@@ -275,8 +279,8 @@ export function PatientDetailPage({ basePath, canEdit = false, isAdmin = false }
               </div>
             ) : (
               <p className="text-sm text-muted">
-                {patient.admission_status === ADMISSION_STATUS.REQUIRED
-                  ? 'Admission Required. Assign an available bed to admit this patient.'
+                {isAdmissionPending(patient.admission_status)
+                  ? 'Admission pending. Assign an available bed to admit this patient.'
                   : patient.admission_status === ADMISSION_STATUS.DISCHARGED
                     ? 'This visit has been discharged. No active bed.'
                     : patient.care_type === CARE_TYPE.OUTPATIENT

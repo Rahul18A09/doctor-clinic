@@ -217,7 +217,7 @@ describe("patient API", { timeout: 120_000 }, () => {
     assert.equal(listed.status, 200);
     assert.ok(listed.body.data.results.some((row: { id: string }) => row.id === String(inpatient._id)));
     assert.ok(
-      listed.body.data.results.every((row: { admission_status: string }) => row.admission_status === "Admission Required"),
+      listed.body.data.results.every((row: { admission_status: string }) => row.admission_status === "Pending"),
     );
 
     const discharge = await request(app)

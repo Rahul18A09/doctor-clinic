@@ -41,7 +41,7 @@ import {
 } from "../notifications/notifyStaff";
 import { applyCareTypeDecision } from "../patients/admission";
 import { buildDoctorListFilter, doctorListSort } from "../patients/doctorFilters";
-import { serializePatient } from "../patients/serializePatient";
+import { serializePatient, serializePatientWithBed, serializePatientsWithBeds } from "../patients/serializePatient";
 import { getPatientStats } from "../patients/stats";
 import { findVisitByPublicId } from "../patients/visits";
 
@@ -147,7 +147,7 @@ const listDoctorPatients: RequestHandler = async (req: Request, res: Response): 
 
   paginatedSuccessResponse(res, {
     message: "Patients retrieved successfully.",
-    results: patients.map(serializePatient),
+    results: await serializePatientsWithBeds(patients),
     pagination: buildPaginationMeta(parsed, total),
   });
 };
@@ -177,7 +177,7 @@ const listCompletedPatients: RequestHandler = async (
 
   paginatedSuccessResponse(res, {
     message: "Completed patients retrieved successfully.",
-    results: patients.map(serializePatient),
+    results: await serializePatientsWithBeds(patients),
     pagination: buildPaginationMeta(parsed, total),
   });
 };
@@ -189,7 +189,7 @@ const getDoctorPatient: RequestHandler = async (req: Request, res: Response): Pr
   }
   successResponse(res, {
     message: "Patient retrieved successfully.",
-    data: { patient: serializePatient(patient) },
+    data: { patient: await serializePatientWithBed(patient) },
   });
 };
 

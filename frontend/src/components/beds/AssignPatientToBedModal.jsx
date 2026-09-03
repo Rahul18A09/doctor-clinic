@@ -141,40 +141,36 @@ export function AssignPatientToBedModal({
                       available
                     </p>
                   </button>
+                  {active && (
+                    <div className="mt-2 ml-4">
+                      {loadingBeds ? (
+                        <p className="text-sm text-muted">Loading beds...</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {beds.map((bed) => {
+                            const bedActive = selectedBed?.id === bed.id
+                            return (
+                              <li key={bed.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedBed(bed)}
+                                  disabled={submitting}
+                                  className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${stepClass(bedActive)}`}
+                                >
+                                  <p className="font-medium text-foreground">Bed {bed.bed_number}</p>
+                                  <p className="mt-0.5 text-xs text-muted">Available</p>
+                                </button>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </li>
               )
             })}
           </ul>
-        )}
-
-        {selectedRoom && (
-          <>
-            <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-muted">
-              2. Select available bed
-            </p>
-            {loadingBeds ? (
-              <p className="mt-3 text-sm text-muted">Loading beds...</p>
-            ) : (
-              <ul className="mt-3 space-y-2">
-                {beds.map((bed) => {
-                  const active = selectedBed?.id === bed.id
-                  return (
-                    <li key={bed.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedBed(bed)}
-                        disabled={submitting}
-                        className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${stepClass(active)}`}
-                      >
-                        <p className="font-medium text-foreground">Bed {bed.bed_number}</p>
-                        <p className="mt-0.5 text-xs text-muted">Available</p>
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </>
         )}
 
         {error && <p className="mt-3 text-sm text-red-500">{error}</p>}

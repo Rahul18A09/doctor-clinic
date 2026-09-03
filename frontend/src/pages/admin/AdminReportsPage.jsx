@@ -277,7 +277,7 @@ export function AdminReportsPage() {
   ]
   const detailedSegments = [
     { key: 'completed', label: 'Completed', value: status.completed || 0 },
-    { key: 'in_consultation', label: 'In Consultation', value: status.in_consultation || 0 },
+    { key: 'in_consultation', label: 'In Progress', value: status.in_consultation || 0 },
     { key: 'waiting', label: 'Waiting', value: status.waiting || 0 },
     { key: 'cancelled', label: 'Cancelled', value: status.cancelled || 0 },
   ]
@@ -465,7 +465,7 @@ export function AdminReportsPage() {
               <div className="grid w-full grid-cols-2 gap-3 lg:grid-cols-4">
                 {[
                   { label: 'Completed', value: status.completed, color: 'text-emerald-600' },
-                  { label: 'In Consultation', value: status.in_consultation, color: 'text-primary-600' },
+                  { label: 'In Progress', value: status.in_consultation, color: 'text-primary-600' },
                   { label: 'Waiting', value: status.waiting, color: 'text-amber-600' },
                   { label: 'Cancelled', value: status.cancelled, color: 'text-red-600' },
                 ].map((item) => (
@@ -533,7 +533,7 @@ export function AdminReportsPage() {
                       { key: 'waiting', label: 'Waiting', value: report.queue?.waiting_tokens || 0 },
                       {
                         key: 'in_consultation',
-                        label: 'In Consultation',
+                        label: 'In Progress',
                         value: report.queue?.in_consultation_tokens || 0,
                       },
                     ]}

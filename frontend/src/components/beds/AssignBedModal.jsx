@@ -45,7 +45,7 @@ export function AssignBedModal({
         page: 1,
         page_size: 10,
         search: value,
-        admission_status: 'Admission Required',
+        admission_status: 'Pending',
       })
       const rows = res.data?.results || []
       setResults(rows)
@@ -74,7 +74,7 @@ export function AssignBedModal({
         <h3 className="text-lg font-semibold text-foreground">Assign Patient</h3>
         <p className="mt-1 text-sm text-muted">
           Assign a patient to bed {bed?.bed_number}. Only available beds can be assigned, and the
-          patient must require admission.
+          patient must have admission pending.
         </p>
 
         <form onSubmit={handleSearch} className="mt-5 flex flex-col gap-3 sm:flex-row">

@@ -30,7 +30,7 @@ const statConfig = [
   },
   {
     key: 'in_consultation',
-    title: 'In Consultation',
+    title: 'In Progress',
     tab: CONSULTATION_TABS.IN_CONSULTATION,
     trend: 'Currently active',
     color: 'blue',
@@ -38,7 +38,7 @@ const statConfig = [
   },
   {
     key: 'completed',
-    title: 'Completed Patients',
+    title: 'Visit Completed',
     tab: CONSULTATION_TABS.COMPLETED,
     trend: 'All time',
     color: 'green',

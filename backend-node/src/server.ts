@@ -3,6 +3,7 @@ import type { Server } from "node:http";
 import app from "./app";
 import { connectDatabase, disconnectDatabase } from "./config/database";
 import { env } from "./config/env";
+import { attachRealtime, closeRealtime } from "./realtime/socket";
 
 let server: Server | undefined;
 let isShuttingDown = false;
@@ -15,6 +16,7 @@ async function shutdown(signal: string): Promise<void> {
   console.log(`Received ${signal}. Shutting down gracefully...`);
 
   try {
+    await closeRealtime();
     if (server?.listening) {
       await new Promise<void>((resolve, reject) => {
         server?.close((error) => {
@@ -42,6 +44,7 @@ async function start(): Promise<void> {
     console.log(`backend-node listening on port ${env.port}`);
     console.log(`API docs: http://127.0.0.1:${env.port}/api/docs/`);
   });
+  attachRealtime(server);
 
   server.on("error", (error: NodeJS.ErrnoException) => {
     console.error(`HTTP server error: ${error.message}`);

@@ -27,9 +27,9 @@ const statConfig = [
   },
   {
     key: 'completed_today',
-    title: 'Completed',
+    title: 'Visit Completed',
     filter: 'completed',
-    trend: 'Checked out today',
+    trend: 'Visits completed today',
     color: 'green',
     variant: 'completed',
   },

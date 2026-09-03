@@ -570,7 +570,7 @@ Content-Type: application/json
 
 | Status | Message |
 |---|---|
-| `400` | Missing/invalid `patient_id`; `Only available beds can be assigned.`; `Only inpatients who require admission can be assigned a bed.`; `This patient is already assigned to another bed.` |
+| `400` | Missing/invalid `patient_id`; `Only available beds can be assigned.`; `Only inpatients with admission pending can be assigned a bed.`; `This patient is already assigned to another bed.` |
 | `401` | JWT missing/invalid |
 | `403` | Not Admin or Receptionist (`canAssignBeds`) |
 | `404` | `Bed not found.` or `Patient not found.` |

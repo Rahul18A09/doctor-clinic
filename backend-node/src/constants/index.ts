@@ -144,15 +144,46 @@ export type CareType = (typeof CareType)[keyof typeof CareType];
 export const CARE_TYPES: CareType[] = [CareType.OUTPATIENT, CareType.INPATIENT];
 
 export const AdmissionStatus = {
-  REQUIRED: "Admission Required",
+  NOT_REQUIRED: "Not Required",
+  PENDING: "Pending",
   ADMITTED: "Admitted",
   DISCHARGED: "Discharged",
 } as const;
 
 export type AdmissionStatus = (typeof AdmissionStatus)[keyof typeof AdmissionStatus];
 
-export const ADMISSION_STATUSES: AdmissionStatus[] = [
-  AdmissionStatus.REQUIRED,
+/** Stored on older inpatient visits before Admission Required was renamed to Pending. */
+export const LEGACY_ADMISSION_REQUIRED = "Admission Required";
+
+export const ADMISSION_PENDING_VALUES: readonly string[] = [
+  AdmissionStatus.PENDING,
+  LEGACY_ADMISSION_REQUIRED,
+];
+
+export const ADMISSION_STATUSES: string[] = [
+  AdmissionStatus.NOT_REQUIRED,
+  AdmissionStatus.PENDING,
   AdmissionStatus.ADMITTED,
   AdmissionStatus.DISCHARGED,
+  LEGACY_ADMISSION_REQUIRED,
 ];
+
+export function isAdmissionPending(status?: string | null): boolean {
+  return status === AdmissionStatus.PENDING || status === LEGACY_ADMISSION_REQUIRED;
+}
+
+export function normalizeAdmissionStatus(
+  careType?: string | null,
+  admissionStatus?: string | null,
+): string {
+  if (isAdmissionPending(admissionStatus)) {
+    return AdmissionStatus.PENDING;
+  }
+  if (admissionStatus) {
+    return admissionStatus;
+  }
+  if (careType === CareType.OUTPATIENT) {
+    return AdmissionStatus.NOT_REQUIRED;
+  }
+  return "";
+}

@@ -1,4 +1,4 @@
-import { ADMISSION_STATUSES, CARE_TYPES, PATIENT_STATUSES, PatientStatus } from "../constants";
+import { ADMISSION_PENDING_VALUES, ADMISSION_STATUSES, CARE_TYPES, PATIENT_STATUSES, PatientStatus, isAdmissionPending } from "../constants";
 import {
   createdAtUtcRangeFilter,
   getTodayUtcRange,
@@ -37,14 +37,18 @@ export function buildPatientListFilter(
   } else if (filterType === "completed") {
     clauses.push({ status: PatientStatus.COMPLETED });
   } else if (filterType === "admission_required") {
-    clauses.push({ admission_status: "Admission Required" });
+    clauses.push({ admission_status: { $in: [...ADMISSION_PENDING_VALUES] } });
   }
 
   if (careType && (CARE_TYPES as readonly string[]).includes(careType)) {
     clauses.push({ care_type: careType });
   }
-  if (admissionStatus && (ADMISSION_STATUSES as readonly string[]).includes(admissionStatus)) {
-    clauses.push({ admission_status: admissionStatus });
+  if (admissionStatus && ADMISSION_STATUSES.includes(admissionStatus)) {
+    clauses.push(
+      isAdmissionPending(admissionStatus)
+        ? { admission_status: { $in: [...ADMISSION_PENDING_VALUES] } }
+        : { admission_status: admissionStatus },
+    );
   }
 
   if (dateParam) {

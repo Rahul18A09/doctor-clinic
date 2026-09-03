@@ -43,7 +43,7 @@ import { notifyBedReleased } from "../notifications/bedEvents";
 import { RECEPTIONIST_ROLES, notifyIfEnabled, notifyQueueWaiting } from "../notifications/notifyStaff";
 import { markPatientDischargedIfAdmitted, NOT_ADMITTED_GUARD } from "../patients/admission";
 import { buildPatientListFilter } from "../patients/filters";
-import { serializePatient } from "../patients/serializePatient";
+import { serializePatient, serializePatientWithBed, serializePatientsWithBeds } from "../patients/serializePatient";
 import { getPatientStats } from "../patients/stats";
 import { formatTokenForDisplay } from "../patients/tokens";
 import {
@@ -202,7 +202,7 @@ const listPatients: RequestHandler = async (req: Request, res: Response): Promis
 
   paginatedSuccessResponse(res, {
     message: "Patients retrieved successfully.",
-    results: patients.map(serializePatient),
+    results: await serializePatientsWithBeds(patients),
     pagination: buildPaginationMeta(parsed, total),
   });
 };
@@ -290,7 +290,7 @@ const getPatient: RequestHandler = async (req: Request, res: Response): Promise<
   }
   successResponse(res, {
     message: "Patient retrieved successfully.",
-    data: { patient: serializePatient(patient) },
+    data: { patient: await serializePatientWithBed(patient) },
   });
 };
 
@@ -378,7 +378,7 @@ const dischargePatient: RequestHandler = async (req: Request, res: Response): Pr
   const updated = await Patient.findById(patient._id).exec();
   successResponse(res, {
     message: "Patient discharged successfully.",
-    data: { patient: serializePatient(updated ?? patient) },
+    data: { patient: await serializePatientWithBed(updated ?? patient) },
   });
 };
 

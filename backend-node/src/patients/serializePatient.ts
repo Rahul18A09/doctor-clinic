@@ -1,5 +1,7 @@
 import { toDjangoIso } from "../auth/iso";
-import { PatientStatus } from "../constants";
+import { PatientStatus, normalizeAdmissionStatus } from "../constants";
+import type { AssignedBedInfo } from "./assignedBeds";
+import { assignedBedsByPatientId } from "./assignedBeds";
 import { formatTokenForDisplay } from "./tokens";
 import { permanentPatientId } from "./visits";
 
@@ -41,6 +43,7 @@ export type SerializedPatient = {
   admission_status: string;
   admitted_at: string | null;
   discharged_at: string | null;
+  assigned_bed: AssignedBedInfo | null;
 };
 
 function nullableNumber(value: number | null | undefined): number | null {
@@ -85,7 +88,7 @@ export function serializePatient(patient: {
   admission_status?: string | null;
   admitted_at?: Date | null;
   discharged_at?: Date | null;
-}): SerializedPatient {
+}, assignedBed: AssignedBedInfo | null = null): SerializedPatient {
   return {
     id: patient.id ?? String(patient._id),
     patient_id: permanentPatientId(patient),
@@ -121,8 +124,25 @@ export function serializePatient(patient: {
     updated_by: patient.updated_by || "",
     updated_by_name: patient.updated_by_name || "",
     care_type: patient.care_type || "",
-    admission_status: patient.admission_status || "",
+    admission_status: normalizeAdmissionStatus(patient.care_type, patient.admission_status),
     admitted_at: toDjangoIso(patient.admitted_at),
     discharged_at: toDjangoIso(patient.discharged_at),
+    assigned_bed: assignedBed,
   };
+}
+
+export async function serializePatientsWithBeds(
+  patients: Array<Parameters<typeof serializePatient>[0] & { _id?: { toString(): string }; id?: string }>,
+): Promise<SerializedPatient[]> {
+  const assignedBeds = await assignedBedsByPatientId(
+    patients.map((row) => String(row.id ?? row._id)),
+  );
+  return patients.map((row) => serializePatient(row, assignedBeds[String(row.id ?? row._id)] ?? null));
+}
+
+export async function serializePatientWithBed(
+  patient: Parameters<typeof serializePatient>[0] & { _id?: { toString(): string }; id?: string },
+): Promise<SerializedPatient> {
+  const assignedBeds = await assignedBedsByPatientId([String(patient.id ?? patient._id)]);
+  return serializePatient(patient, assignedBeds[String(patient.id ?? patient._id)] ?? null);
 }

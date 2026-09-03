@@ -32,13 +32,16 @@ describe("buildPatientListFilter", () => {
 
   it("maps filter=admission_required and care_type/admission_status query params", async () => {
     assert.deepEqual(buildPatientListFilter({ filter: "admission_required" }, now), {
-      admission_status: "Admission Required",
+      admission_status: { $in: ["Pending", "Admission Required"] },
     });
     assert.deepEqual(buildPatientListFilter({ care_type: "Inpatient" }, now), {
       care_type: "Inpatient",
     });
     assert.deepEqual(buildPatientListFilter({ admission_status: "Admitted" }, now), {
       admission_status: "Admitted",
+    });
+    assert.deepEqual(buildPatientListFilter({ admission_status: "Pending" }, now), {
+      admission_status: { $in: ["Pending", "Admission Required"] },
     });
     assert.deepEqual(buildPatientListFilter({ care_type: "Walk-in" }, now), {});
   });

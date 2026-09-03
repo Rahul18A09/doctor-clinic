@@ -196,8 +196,8 @@ export function admissionRequiredMessage(
   visitNumber: number,
 ): { title: string; message: string } {
   return {
-    title: "Admission required",
-    message: `${name} requires admission (visit #${visitNumber}, token ${token}).`,
+    title: "Admission pending",
+    message: `${name} has admission pending (visit #${visitNumber}, token ${token}).`,
   };
 }
 

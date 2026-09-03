@@ -296,7 +296,7 @@ export function PatientListPage({
         </form>
         <Select
           options={PATIENT_STATUS_FILTER_OPTIONS}
-          placeholder="All Statuses"
+          placeholder="All Visit Statuses"
           value={statusFilter}
           onChange={(e) => {
             setPage(1)
@@ -359,12 +359,18 @@ export function PatientListPage({
                   <PatientStatusBadge status={p.status} />
                 </div>
                 <dl className="mt-3 space-y-1.5 text-sm">
-                  {(p.care_type || p.admission_status) && (
+                  {(p.care_type || p.admission_status || p.assigned_bed?.label) && (
                     <div className="flex flex-wrap justify-end gap-2">
                       <CareTypeBadge careType={p.care_type} />
                       <AdmissionStatusBadge status={p.admission_status} />
                     </div>
                   )}
+                  {p.assigned_bed?.label ? (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-muted">Bed</dt>
+                      <dd className="text-right text-foreground">{p.assigned_bed.label}</dd>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between gap-3">
                     <dt className="text-muted">Mobile</dt>
                     <dd className="text-foreground">{p.mobile}</dd>
@@ -401,8 +407,8 @@ export function PatientListPage({
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Mobile</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Age/Gender</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Patient Type</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Admission</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Status</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Admission Status</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Visit Status</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Created By</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Registered</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Actions</th>
@@ -431,6 +437,9 @@ export function PatientListPage({
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 sm:px-6">
                         {p.admission_status ? <AdmissionStatusBadge status={p.admission_status} /> : '—'}
+                        {p.assigned_bed?.label ? (
+                          <p className="mt-1 text-xs text-muted">{p.assigned_bed.label}</p>
+                        ) : null}
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 sm:px-6">
                         <PatientStatusBadge status={p.status} />

@@ -7,7 +7,7 @@ import { PatientStatusBadge } from '@/components/patients/PatientStatusBadge'
 import { BackButton, Button, CompleteTreatmentDialog, ConfirmDialog, Input } from '@/components/ui'
 import { useToast } from '@/context/ToastContext'
 import { useNotifications } from '@/hooks/useNotifications'
-import { ADMISSION_STATUS, CARE_TYPE, CONSULTATION_TABS, PATIENT_STATUS, ROUTES } from '@/utils/constants'
+import { ADMISSION_STATUS, CARE_TYPE, CONSULTATION_TABS, PATIENT_STATUS, ROUTES, isAdmissionPending } from '@/utils/constants'
 import { formatTokenForUi } from '@/utils/formatToken'
 
 function formatDate(iso) {
@@ -193,8 +193,8 @@ export function ConsultationPage() {
       await refreshNotifications()
       showSuccess(
         careType === CARE_TYPE.INPATIENT
-          ? 'Inpatient selected. Admission is required until a bed is assigned.'
-          : 'Outpatient selected. No admission or bed is required.',
+          ? 'Inpatient selected. Admission is pending until a bed is assigned.'
+          : 'Outpatient selected. Admission status is Not Required.',
       )
     } catch (err) {
       showError(err.response?.data?.message || err.message)
@@ -278,8 +278,8 @@ export function ConsultationPage() {
 
       <SectionCard title="Patient Type">
         <p className="text-sm text-muted">
-          Select Outpatient or Inpatient. This does not assign a bed. Completing treatment does not
-          discharge an Inpatient.
+          Select Outpatient or Inpatient. This does not assign a bed. Completing the visit does not
+          discharge an Inpatient or release a bed.
         </p>
         {isReadOnly ? (
           <div className="mt-4 flex flex-wrap gap-2">
@@ -307,15 +307,15 @@ export function ConsultationPage() {
             </Button>
           </div>
         )}
-        {patient.admission_status === ADMISSION_STATUS.REQUIRED && (
+        {isAdmissionPending(patient.admission_status) && (
           <p className="mt-3 text-sm text-amber-800">
-            Admission Required. Reception or Admin can assign an available bed from Patient Details
+            Admission pending. Reception or Admin can assign an available bed from Patient Details
             or Bed Management.
           </p>
         )}
         {patient.admission_status === ADMISSION_STATUS.ADMITTED && (
           <p className="mt-3 text-sm text-muted">
-            Admitted. Cancelled or completed consultation does not release the bed. Discharge from
+            Admitted. Completing or cancelling the visit does not release the bed. Discharge from
             Patient Details when the stay ends.
           </p>
         )}
@@ -464,7 +464,7 @@ export function ConsultationPage() {
 
       {isReadOnly && (
         <div className="flex flex-wrap gap-3">
-          <BackButton to={consultationsPath(CONSULTATION_TABS.COMPLETED)}>Back to Completed</BackButton>
+          <BackButton to={consultationsPath(CONSULTATION_TABS.COMPLETED)}>Back to Visit Completed</BackButton>
         </div>
       )}
 

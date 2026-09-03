@@ -55,6 +55,11 @@ export default defineConfig(({ command }) => {
       target: 'http://127.0.0.1:8001',
       changeOrigin: true,
     },
+    '/socket.io': {
+      target: 'http://127.0.0.1:8001',
+      changeOrigin: true,
+      ws: true,
+    },
   }
 
   const lanListen: Pick<
@@ -118,11 +123,16 @@ export default defineConfig(({ command }) => {
             '**/*.{js,css,html,ico,png,svg,woff,woff2}',
           ],
           navigateFallback: 'index.html',
-          navigateFallbackDenylist: [/^\/api\//],
+          navigateFallbackDenylist: [/^\/api\//, /^\/socket\.io/],
           runtimeCaching: [
             {
               urlPattern: ({ url }) =>
                   url.pathname.startsWith('/api/'),
+              handler: 'NetworkOnly',
+            },
+            {
+              urlPattern: ({ url }) =>
+                  url.pathname.startsWith('/socket.io'),
               handler: 'NetworkOnly',
             },
           ],
