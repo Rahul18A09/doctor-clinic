@@ -22,6 +22,7 @@ export type SerializedBed = {
   bed_number: string;
   status: BedStatus;
   patient_id: string | null;
+  patient_name: string | null;
   assigned_at: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -68,13 +69,16 @@ export function serializeBed(
     created_at?: Date | null;
     updated_at?: Date | null;
   },
+  options: { patient_name?: string | null } = {},
 ): SerializedBed {
+  const patientId = bed.patient_id || null;
   return {
     id: bed.id ?? String(bed._id),
     room_id: bed.room_id,
     bed_number: bed.bed_number,
     status: bed.status,
-    patient_id: bed.patient_id || null,
+    patient_id: patientId,
+    patient_name: options.patient_name ?? null,
     assigned_at: toDjangoIso(bed.assigned_at),
     created_at: toDjangoIso(bed.created_at),
     updated_at: toDjangoIso(bed.updated_at),

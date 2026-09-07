@@ -3,6 +3,7 @@ import { Router } from "express";
 
 import { occupancyByRoomIds, occupancyForRoom } from "../beds/counts";
 import { ensureBedManagementIndexes } from "../beds/indexes";
+import { patientNamesByIds } from "../beds/patientNames";
 import {
   CAPACITY_BELOW_BEDS,
   DUPLICATE_ROOM_NUMBER,
@@ -130,6 +131,8 @@ const listRooms: RequestHandler = async (req: Request, res: Response): Promise<v
   const search = readQueryString(req.query.search);
   const roomType = readQueryString(req.query.room_type);
   const floor = readQueryString(req.query.floor);
+  const includeBedsRaw = readQueryString(req.query.include_beds);
+  const includeBeds = includeBedsRaw === "1" || includeBedsRaw === "true";
 
   const filter: Record<string, unknown> = {};
   if (search) {
@@ -148,13 +151,45 @@ const listRooms: RequestHandler = async (req: Request, res: Response): Promise<v
     .skip(parsed.skip)
     .limit(parsed.limit)
     .exec();
-  const occupancy = await occupancyByRoomIds(rooms.map((room) => String(room._id)));
+  const roomIds = rooms.map((room) => String(room._id));
+  const occupancy = await occupancyByRoomIds(roomIds);
+
+  if (!includeBeds) {
+    paginatedSuccessResponse(res, {
+      message: "Rooms retrieved successfully.",
+      results: rooms.map((room) =>
+        serializeRoom(room, occupancy.get(String(room._id)) ?? { bed_count: 0, available_count: 0 }),
+      ),
+      pagination: buildPaginationMeta(parsed, total),
+    });
+    return;
+  }
+
+  const beds = await Bed.find({ room_id: { $in: roomIds } })
+    .sort({ bed_number: 1 })
+    .exec();
+  const names = await patientNamesByIds(beds.map((bed) => bed.patient_id));
+  const bedsByRoom = new Map<string, ReturnType<typeof serializeBed>[]>();
+  for (const bed of beds) {
+    const roomId = bed.room_id;
+    const list = bedsByRoom.get(roomId) ?? [];
+    list.push(
+      serializeBed(bed, {
+        patient_name: bed.patient_id ? (names.get(bed.patient_id) ?? null) : null,
+      }),
+    );
+    bedsByRoom.set(roomId, list);
+  }
 
   paginatedSuccessResponse(res, {
     message: "Rooms retrieved successfully.",
-    results: rooms.map((room) =>
-      serializeRoom(room, occupancy.get(String(room._id)) ?? { bed_count: 0, available_count: 0 }),
-    ),
+    results: rooms.map((room) => {
+      const id = String(room._id);
+      return {
+        ...serializeRoom(room, occupancy.get(id) ?? { bed_count: 0, available_count: 0 }),
+        beds: bedsByRoom.get(id) ?? [],
+      };
+    }),
     pagination: buildPaginationMeta(parsed, total),
   });
 };
@@ -188,12 +223,17 @@ const getRoom: RequestHandler = async (req: Request, res: Response): Promise<voi
     return;
   }
   const beds = await Bed.find({ room_id: String(room._id) }).sort({ bed_number: 1 }).exec();
+  const names = await patientNamesByIds(beds.map((bed) => bed.patient_id));
   const occupancy = await occupancyForRoom(String(room._id));
   successResponse(res, {
     message: "Room retrieved successfully.",
     data: {
       room: serializeRoom(room, occupancy),
-      beds: beds.map(serializeBed),
+      beds: beds.map((bed) =>
+        serializeBed(bed, {
+          patient_name: bed.patient_id ? (names.get(bed.patient_id) ?? null) : null,
+        }),
+      ),
     },
   });
 };

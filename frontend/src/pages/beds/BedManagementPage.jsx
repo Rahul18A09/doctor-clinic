@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { patientService } from '@/api/patients'
 import { bedService, getBedsErrorMessage, roomService } from '@/api/beds'
 import { AssignBedModal } from '@/components/beds/AssignBedModal'
 import { BedFormModal } from '@/components/beds/BedFormModal'
@@ -103,19 +102,25 @@ function getSummaryCards(canManage) {
   ]
 }
 
-async function loadPatientsByIds(ids) {
-  const unique = [...new Set(ids.filter(Boolean))]
-  const entries = await Promise.all(
-    unique.map(async (id) => {
-      try {
-        const { data: res } = await patientService.get(id)
-        return [id, res.data?.patient || null]
-      } catch {
-        return [id, null]
+function patientsByIdFromBeds(rows) {
+  const map = {}
+  for (const row of rows) {
+    for (const bed of row.beds || []) {
+      if (bed.patient_id && bed.patient_name && !map[bed.patient_id]) {
+        map[bed.patient_id] = {
+          id: bed.patient_id,
+          patient_name: bed.patient_name,
+        }
       }
-    }),
-  )
-  return Object.fromEntries(entries)
+    }
+  }
+  return map
+}
+
+function splitRoomWithBeds(entry) {
+  const beds = Array.isArray(entry?.beds) ? entry.beds : []
+  const { beds: _beds, ...room } = entry || {}
+  return { room, beds }
 }
 
 export function BedManagementPage({
@@ -170,17 +175,11 @@ export function BedManagementPage({
       const appliedPage = pageOverride !== undefined ? pageOverride : page
       try {
         const roomParams = {
-          page: appliedPage,
-          page_size: 10,
+          include_beds: true,
           search: appliedSearch,
         }
         if (roomType) roomParams.room_type = roomType
         if (floor) roomParams.floor = floor
-
-        const [summaryRes, floorRes] = await Promise.all([
-          bedService.summary(),
-          roomService.list({ page: 1, page_size: 100 }),
-        ])
 
         let filtered = []
         let paginationMeta = {
@@ -190,35 +189,25 @@ export function BedManagementPage({
           has_previous: false,
         }
 
+        const [summaryRes, roomsRes] = await Promise.all([
+          bedService.summary(),
+          bedStatus
+            ? roomService.list({ ...roomParams, page: 1, page_size: 100 })
+            : roomService.list({ ...roomParams, page: appliedPage, page_size: 10 }),
+        ])
+
+        const listed = roomsRes.data?.data?.results || []
+
         if (bedStatus) {
-          const bedsRes =
-            bedStatus === BED_STATUS.AVAILABLE
-              ? await bedService.listAvailable({ page: 1, page_size: 100 })
-              : await bedService.list({ status: bedStatus, page: 1, page_size: 100 })
-          const statusBeds = bedsRes.data?.data?.results || []
-          const roomIds = [...new Set(statusBeds.map((bed) => bed.room_id).filter(Boolean))]
-          const details = await Promise.all(
-            roomIds.map(async (id) => {
-              const { data: res } = await roomService.get(id)
+          filtered = listed
+            .map((entry) => {
+              const { room, beds } = splitRoomWithBeds(entry)
               return {
-                room: res.data?.room,
-                beds: (res.data?.beds || []).filter((bed) => bed.status === bedStatus),
+                room,
+                beds: beds.filter((bed) => bed.status === bedStatus),
               }
-            }),
-          )
-          const searchLower = String(appliedSearch || '').toLowerCase()
-          filtered = details.filter((row) => {
-            if (!row.room) return false
-            if (roomType && row.room.room_type !== roomType) return false
-            if (floor && !String(row.room.floor || '').toLowerCase().includes(String(floor).toLowerCase())) {
-              return false
-            }
-            if (searchLower) {
-              const haystack = `${row.room.room_number} ${row.room.notes || ''}`.toLowerCase()
-              if (!haystack.includes(searchLower)) return false
-            }
-            return true
-          })
+            })
+            .filter((row) => row.beds.length > 0)
           paginationMeta = {
             total_pages: 1,
             total: filtered.length,
@@ -226,32 +215,17 @@ export function BedManagementPage({
             has_previous: false,
           }
         } else {
-          const roomsRes = await roomService.list(roomParams)
-          const listed = roomsRes.data?.data?.results || []
-          filtered = await Promise.all(
-            listed.map(async (room) => {
-              const { data: res } = await roomService.get(room.id)
-              return {
-                room: res.data?.room || room,
-                beds: res.data?.beds || [],
-              }
-            }),
-          )
+          filtered = listed.map(splitRoomWithBeds)
           paginationMeta = roomsRes.data?.data?.pagination || paginationMeta
         }
 
-        const patientIds = filtered.flatMap((row) => row.beds.map((bed) => bed.patient_id))
-        const patients = await loadPatientsByIds(patientIds)
-
-        const floorPayload = floorRes.data?.data
-        setSummary(summaryRes.data?.data?.summary || EMPTY_SUMMARY)
-        setTotalRooms(floorPayload?.pagination?.total ?? (floorPayload?.results || []).length)
+        const summaryPayload = summaryRes.data?.data || {}
+        setSummary(summaryPayload.summary || EMPTY_SUMMARY)
+        setTotalRooms(summaryPayload.total_rooms ?? 0)
+        setFloors(Array.isArray(summaryPayload.floors) ? summaryPayload.floors : [])
         setRooms(filtered)
-        setPatientsById(patients)
+        setPatientsById(patientsByIdFromBeds(filtered))
         setPagination(paginationMeta)
-        setFloors(
-          [...new Set((floorRes.data?.data?.results || []).map((room) => room.floor).filter(Boolean))].sort(),
-        )
         setLoadError('')
       } catch (err) {
         const message = getBedsErrorMessage(err, 'Could not load rooms and beds.')
@@ -281,7 +255,17 @@ export function BedManagementPage({
   const openBedDetail = async (room, beds, bed) => {
     try {
       const { data: res } = await bedService.get(bed.id)
-      setDetail({ open: true, room, beds, bed: res.data?.bed || bed })
+      const nextBed = res.data?.bed || bed
+      if (nextBed?.patient_id && nextBed?.patient_name) {
+        setPatientsById((prev) => ({
+          ...prev,
+          [nextBed.patient_id]: {
+            id: nextBed.patient_id,
+            patient_name: nextBed.patient_name,
+          },
+        }))
+      }
+      setDetail({ open: true, room, beds, bed: nextBed })
     } catch (error) {
       showError(getBedsErrorMessage(error, 'Could not load bed details.'))
       setDetail({ open: true, room, beds, bed })

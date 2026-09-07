@@ -192,6 +192,43 @@ describe("bed management API", { timeout: 120_000 }, () => {
     assert.equal(detail.body.data.beds.length, 2);
   });
 
+  it("lists rooms with beds in one response and returns room meta on summary", async () => {
+    const room = await request(app).post("/api/v1/rooms/").set(adminAuth()).send({
+      room_number: `${stamp}-bulk`,
+      room_type: "GENERAL",
+      floor: "Bulk-Floor",
+      capacity: 3,
+    });
+    const roomId = trackRoom(room.body.data.room.id);
+    const bed = await request(app).post("/api/v1/beds/").set(adminAuth()).send({
+      room_id: roomId,
+      bed_number: "BK-1",
+    });
+    const bedId = trackBed(bed.body.data.bed.id);
+    const patientId = await createInpatient(`${stamp} bulk`);
+    await request(app).post(`/api/v1/beds/${bedId}/assign/`).set(adminAuth()).send({ patient_id: patientId });
+
+    const listed = await request(app)
+      .get("/api/v1/rooms/")
+      .query({ search: `${stamp}-bulk`, include_beds: "true", page_size: 100 })
+      .set(adminAuth());
+    assert.equal(listed.status, 200);
+    const match = listed.body.data.results.find((row: { id: string }) => row.id === roomId);
+    assert.ok(match);
+    assert.ok(Array.isArray(match.beds));
+    assert.equal(match.beds.length, 1);
+    assert.equal(match.beds[0].id, bedId);
+    assert.equal(match.beds[0].patient_id, patientId);
+    assert.equal(match.beds[0].patient_name, `${stamp} bulk`);
+
+    const summary = await request(app).get("/api/v1/beds/summary/").set(adminAuth());
+    assert.equal(summary.status, 200);
+    assert.equal(typeof summary.body.data.total_rooms, "number");
+    assert.ok(summary.body.data.total_rooms >= 1);
+    assert.ok(Array.isArray(summary.body.data.floors));
+    assert.ok(summary.body.data.floors.includes("Bulk-Floor"));
+  });
+
   it("does not create a bed past room capacity", async () => {
     const room = await request(app).post("/api/v1/rooms/").set(adminAuth()).send({
       room_number: `${stamp}-cap`,

@@ -21,6 +21,7 @@ export function RoomDetailModal({
 }) {
   const title = bed ? `Bed ${bed.bed_number}` : room ? `Room ${room.room_number}` : 'Details'
   const patient = bed?.patient_id ? patientsById[bed.patient_id] : null
+  const patientName = patient?.patient_name || bed?.patient_name
 
   return (
     <Modal open={open} onClose={onClose} size="lg">
@@ -46,7 +47,7 @@ export function RoomDetailModal({
                 <BedStatusBadge status={bed.status} />
               </dd>
             </div>
-            <Row label="Patient" value={patient?.patient_name} />
+            <Row label="Patient" value={patientName} />
             <Row label="Assigned at" value={formatAssignedAt(bed.assigned_at)} />
           </dl>
         )}

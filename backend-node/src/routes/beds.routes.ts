@@ -3,6 +3,7 @@ import { Router } from "express";
 
 import { computeBedSummary } from "../beds/counts";
 import { ensureBedManagementIndexes } from "../beds/indexes";
+import { patientNamesByIds } from "../beds/patientNames";
 import {
   BED_IN_USE,
   BED_NOT_FOUND,
@@ -41,6 +42,7 @@ import {
 import { authenticate } from "../middleware/authenticate";
 import { canAssignBeds, canManageBeds, canViewBeds } from "../middleware/authorize";
 import { Bed } from "../models/bed.model";
+import { Room } from "../models/room.model";
 import {
   notifyBedAssigned,
   notifyBedReleased,
@@ -155,10 +157,15 @@ const listBeds: RequestHandler = async (req: Request, res: Response): Promise<vo
     .skip(parsed.skip)
     .limit(parsed.limit)
     .exec();
+  const names = await patientNamesByIds(beds.map((bed) => bed.patient_id));
 
   paginatedSuccessResponse(res, {
     message: "Beds retrieved successfully.",
-    results: beds.map(serializeBed),
+    results: beds.map((bed) =>
+      serializeBed(bed, {
+        patient_name: bed.patient_id ? (names.get(bed.patient_id) ?? null) : null,
+      }),
+    ),
     pagination: buildPaginationMeta(parsed, total),
   });
 };
@@ -184,16 +191,24 @@ const listAvailableBeds: RequestHandler = async (req: Request, res: Response): P
 
   paginatedSuccessResponse(res, {
     message: "Available beds retrieved successfully.",
-    results: beds.map(serializeBed),
+    results: beds.map((bed) => serializeBed(bed)),
     pagination: buildPaginationMeta(parsed, total),
   });
 };
 
 const getBedSummary: RequestHandler = async (_req: Request, res: Response): Promise<void> => {
-  const summary = await computeBedSummary();
+  const [summary, totalRooms, floorValues] = await Promise.all([
+    computeBedSummary(),
+    Room.countDocuments().exec(),
+    Room.distinct("floor").exec(),
+  ]);
+  const floors = floorValues
+    .map((value) => String(value || "").trim())
+    .filter((value) => value.length > 0)
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
   successResponse(res, {
     message: "Bed summary retrieved successfully.",
-    data: { summary },
+    data: { summary, total_rooms: totalRooms, floors },
   });
 };
 
@@ -241,9 +256,14 @@ const getBed: RequestHandler = async (req: Request, res: Response): Promise<void
     notFoundResponse(res, BED_NOT_FOUND);
     return;
   }
+  const names = await patientNamesByIds([bed.patient_id]);
   successResponse(res, {
     message: "Bed retrieved successfully.",
-    data: { bed: serializeBed(bed) },
+    data: {
+      bed: serializeBed(bed, {
+        patient_name: bed.patient_id ? (names.get(bed.patient_id) ?? null) : null,
+      }),
+    },
   });
 };
 

@@ -52,7 +52,7 @@ function BedRow({
   onAssign,
   onRelease,
 }) {
-  const patientLabel = patient?.patient_name || (bed.patient_id ? 'Assigned patient' : null)
+  const patientLabel = patient?.patient_name || bed.patient_name || (bed.patient_id ? 'Assigned patient' : null)
 
   return (
     <div className="rounded-xl border border-border bg-card p-3 sm:p-3.5">
