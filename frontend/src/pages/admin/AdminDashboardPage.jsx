@@ -30,17 +30,17 @@ const statConfig = [
   },
   {
     key: 'in_consultation',
-    title: 'In Progress',
+    title: 'Consultations In Progress',
     tab: CONSULTATION_TABS.IN_CONSULTATION,
     trend: 'Currently active',
     color: 'blue',
     variant: 'consultation',
   },
   {
-    key: 'completed',
-    title: 'Visit Completed',
+    key: 'completed_today',
+    title: 'Consultations Completed',
     tab: CONSULTATION_TABS.COMPLETED,
-    trend: 'All time',
+    trend: 'Completed today',
     color: 'green',
     variant: 'completed',
   },
@@ -60,6 +60,7 @@ export function AdminDashboardPage() {
     waiting: 0,
     in_consultation: 0,
     completed: 0,
+    completed_today: 0,
     today: 0,
   })
   const [loading, setLoading] = useState(true)

@@ -296,7 +296,7 @@ export function PatientListPage({
         </form>
         <Select
           options={PATIENT_STATUS_FILTER_OPTIONS}
-          placeholder="All Visit Statuses"
+          placeholder="All Consultation Statuses"
           value={statusFilter}
           onChange={(e) => {
             setPage(1)
@@ -408,7 +408,7 @@ export function PatientListPage({
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Age/Gender</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Patient Type</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Admission Status</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Visit Status</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Consultation Status</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Created By</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Registered</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Actions</th>

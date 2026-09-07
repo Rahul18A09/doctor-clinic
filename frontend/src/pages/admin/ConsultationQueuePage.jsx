@@ -578,7 +578,7 @@ export function ConsultationQueuePage() {
                         <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Completed At</th>
                       </>
                     )}
-                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Visit Status</th>
+                    <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Consultation Status</th>
                     <th className="whitespace-nowrap px-4 py-3 font-medium text-muted sm:px-6">Action</th>
                   </tr>
                 </thead>

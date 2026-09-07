@@ -22,7 +22,7 @@ function MedicalWarningIcon() {
 }
 
 const COMPLETION_NOTES = [
-  'Visit status will change to Completed.',
+  'Consultation status will change to Completed.',
   'The patient will move to the Visit Completed list.',
   'This does not discharge an Inpatient or release a bed.',
   'Receptionist can no longer edit this patient.',

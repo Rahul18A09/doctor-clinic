@@ -19,7 +19,7 @@ const statConfig = [
   },
   {
     key: 'waiting',
-    title: 'Waiting',
+    title: 'Waiting Patients',
     filter: 'waiting',
     trend: 'In waiting room',
     color: 'amber',
@@ -27,9 +27,9 @@ const statConfig = [
   },
   {
     key: 'completed_today',
-    title: 'Visit Completed',
+    title: 'Consultations Completed',
     filter: 'completed',
-    trend: 'Visits completed today',
+    trend: 'Completed today',
     color: 'green',
     variant: 'completed',
   },

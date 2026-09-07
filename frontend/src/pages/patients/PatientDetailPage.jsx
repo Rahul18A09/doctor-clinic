@@ -230,7 +230,7 @@ export function PatientDetailPage({ basePath, canEdit = false, isAdmin = false }
               }
             />
             <DetailRow
-              label="Visit Status"
+              label="Consultation Status"
               value={<PatientStatusBadge status={patient.status} />}
             />
             <DetailRow label="Registered By" value={patient.created_by_name} />
