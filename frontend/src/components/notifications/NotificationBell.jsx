@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useNotifications } from '@/hooks/useNotifications'
 import { formatRelativeTime, notificationTargetPath } from '@/utils/notifications'
@@ -11,9 +11,18 @@ function unreadLabel(count) {
   return String(count)
 }
 
+function isNotificationsPath(pathname) {
+  return (
+    pathname === ROUTES.ADMIN_NOTIFICATIONS ||
+    pathname === ROUTES.RECEPTION_NOTIFICATIONS ||
+    pathname.endsWith('/notifications')
+  )
+}
+
 export function NotificationBell() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { unreadCount, recent, loading, markRead, markAllRead, deleteNotification, fetchRecent } =
     useNotifications()
   const [open, setOpen] = useState(false)
@@ -22,16 +31,20 @@ export function NotificationBell() {
 
   const viewAllPath =
     user?.role === ROLES.ADMIN ? ROUTES.ADMIN_NOTIFICATIONS : ROUTES.RECEPTION_NOTIFICATIONS
+  const onNotificationsPage = isNotificationsPath(pathname)
 
   useEffect(() => {
     if (!open) return undefined
-    fetchRecent()
+    // Page already loads the same first-page list; avoid a duplicate request.
+    if (!onNotificationsPage) {
+      fetchRecent()
+    }
     const onKey = (event) => {
       if (event.key === 'Escape') setOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, fetchRecent])
+  }, [open, fetchRecent, onNotificationsPage])
 
   const handleMarkRead = async (event, id) => {
     event.preventDefault()

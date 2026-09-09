@@ -1,5 +1,7 @@
 import api from './axios'
 
+let currentUserInFlight = null
+
 export const authService = {
   login(credentials) {
     console.log('[authService.login] executing with credentials:', credentials)
@@ -16,7 +18,11 @@ export const authService = {
   },
 
   getCurrentUser() {
-    return api.get('/auth/me/')
+    if (currentUserInFlight) return currentUserInFlight
+    currentUserInFlight = api.get('/auth/me/').finally(() => {
+      currentUserInFlight = null
+    })
+    return currentUserInFlight
   },
 
   updateProfile(data) {

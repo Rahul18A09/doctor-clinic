@@ -113,7 +113,7 @@ export const PATIENT_FILTERS = [
   { value: '', label: 'All Patients' },
   { value: 'today', label: "Today's Patients" },
   { value: 'waiting', label: 'Waiting' },
-  { value: 'completed', label: 'Visit Completed' },
+  { value: 'completed', label: 'Consultation Completed' },
   { value: 'admission_required', label: 'Admission Pending' },
 ]
 
@@ -149,7 +149,7 @@ export const CONSULTATION_TABS = {
 export const CONSULTATION_TAB_LABELS = {
   [CONSULTATION_TABS.WAITING]: 'Waiting',
   [CONSULTATION_TABS.IN_CONSULTATION]: 'In Progress',
-  [CONSULTATION_TABS.COMPLETED]: 'Visit Completed',
+  [CONSULTATION_TABS.COMPLETED]: 'Consultation Completed',
 }
 
 export const ROLES = {

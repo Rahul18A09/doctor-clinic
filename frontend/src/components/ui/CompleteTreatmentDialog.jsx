@@ -23,9 +23,9 @@ function MedicalWarningIcon() {
 
 const COMPLETION_NOTES = [
   'Consultation status will change to Completed.',
-  'The patient will move to the Visit Completed list.',
+  'The patient will move to Consultation Completed.',
   'This does not discharge an Inpatient or release a bed.',
-  'Receptionist can no longer edit this patient.',
+  'Consultation details can no longer be edited after completion.',
 ]
 
 export function CompleteTreatmentDialog({
@@ -41,7 +41,7 @@ export function CompleteTreatmentDialog({
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
         <div className="px-4 pb-2 pt-6 text-center sm:px-8 sm:pt-8">
           <MedicalWarningIcon />
-          <h3 className="mt-5 text-xl font-semibold text-foreground">Complete Treatment</h3>
+          <h3 className="mt-5 text-xl font-semibold text-foreground">Complete Consultation</h3>
           <p className="mt-2 text-sm text-muted">
             You are about to complete this consultation.
           </p>
@@ -113,7 +113,7 @@ export function CompleteTreatmentDialog({
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
           >
             {loading && <ModalSpinner />}
-            {loading ? 'Completing...' : 'Complete Treatment'}
+            {loading ? 'Completing...' : 'Complete Consultation'}
           </button>
         </div>
       </div>

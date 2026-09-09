@@ -464,7 +464,7 @@ export function ConsultationPage() {
 
       {isReadOnly && (
         <div className="flex flex-wrap gap-3">
-          <BackButton to={consultationsPath(CONSULTATION_TABS.COMPLETED)}>Back to Visit Completed</BackButton>
+          <BackButton to={consultationsPath(CONSULTATION_TABS.COMPLETED)}>Back to Consultation Completed</BackButton>
         </div>
       )}
 

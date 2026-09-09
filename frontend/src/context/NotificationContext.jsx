@@ -44,76 +44,100 @@ export function NotificationProvider({ children }) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [recent, setRecent] = useState([])
   const [recentLoading, setRecentLoading] = useState(false)
+  const [inboxRevision, setInboxRevision] = useState(0)
   const mountedRef = useRef(true)
   const intervalRef = useRef(null)
   const unreadGenRef = useRef(0)
-  const unreadRefreshTimerRef = useRef(null)
+  const unreadInFlightRef = useRef(null)
+  const recentInFlightRef = useRef(null)
+  const recentWantedRef = useRef(false)
   const seenIdsRef = useRef(new Set())
   const socketBufferRef = useRef(new Map())
   const socketConnectedRef = useRef(false)
+  const hasSocketConnectedOnceRef = useRef(false)
 
   useEffect(() => {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
-      if (unreadRefreshTimerRef.current !== null) {
-        window.clearTimeout(unreadRefreshTimerRef.current)
-        unreadRefreshTimerRef.current = null
-      }
     }
   }, [])
 
   const refreshUnreadCount = useCallback(async () => {
     if (!isAuthenticated) {
       unreadGenRef.current += 1
+      unreadInFlightRef.current = null
       if (mountedRef.current) setUnreadCount(0)
-      return
+      return 0
     }
-    const gen = ++unreadGenRef.current
-    try {
-      const { data: res } = await notificationService.unreadCount()
-      if (mountedRef.current && gen === unreadGenRef.current) {
-        setUnreadCount(res?.data?.unread_count ?? 0)
-      }
-    } catch {
-      if (!mountedRef.current) return
+    if (unreadInFlightRef.current) {
+      return unreadInFlightRef.current
     }
-  }, [isAuthenticated])
 
-  const scheduleUnreadRefresh = useCallback(() => {
-    if (unreadRefreshTimerRef.current !== null) {
-      window.clearTimeout(unreadRefreshTimerRef.current)
-    }
-    unreadRefreshTimerRef.current = window.setTimeout(() => {
-      unreadRefreshTimerRef.current = null
-      void refreshUnreadCount()
-    }, 150)
-  }, [refreshUnreadCount])
+    const gen = ++unreadGenRef.current
+    const request = (async () => {
+      try {
+        const { data: res } = await notificationService.unreadCount()
+        const count = res?.data?.unread_count ?? 0
+        if (mountedRef.current && gen === unreadGenRef.current) {
+          setUnreadCount(count)
+        }
+        return count
+      } catch {
+        return null
+      } finally {
+        if (unreadInFlightRef.current === request) {
+          unreadInFlightRef.current = null
+        }
+      }
+    })()
+
+    unreadInFlightRef.current = request
+    return request
+  }, [isAuthenticated])
 
   const fetchRecent = useCallback(async () => {
     if (!isAuthenticated) {
       if (mountedRef.current) setRecent([])
-      return
+      return []
     }
+    recentWantedRef.current = true
+    if (recentInFlightRef.current) {
+      return recentInFlightRef.current
+    }
+
     setRecentLoading(true)
-    try {
-      const { data: res } = await notificationService.list({
-        page: 1,
-        page_size: RECENT_PAGE_SIZE,
-      })
-      const results = res?.data?.results ?? []
-      for (const item of results) {
-        if (item?.id) seenIdsRef.current.add(item.id)
+    const request = (async () => {
+      try {
+        const { data: res } = await notificationService.list({
+          page: 1,
+          page_size: RECENT_PAGE_SIZE,
+        })
+        const results = res?.data?.results ?? []
+        for (const item of results) {
+          if (item?.id) seenIdsRef.current.add(item.id)
+        }
+        if (mountedRef.current) {
+          setRecent(mergeRecent(results, socketBufferRef.current))
+        }
+        return results
+      } catch {
+        return []
+      } finally {
+        if (mountedRef.current) setRecentLoading(false)
+        if (recentInFlightRef.current === request) {
+          recentInFlightRef.current = null
+        }
       }
-      if (mountedRef.current) {
-        setRecent(mergeRecent(results, socketBufferRef.current))
-      }
-    } catch {
-      if (!mountedRef.current) return
-    } finally {
-      if (mountedRef.current) setRecentLoading(false)
-    }
+    })()
+
+    recentInFlightRef.current = request
+    return request
   }, [isAuthenticated])
+
+  const bumpInboxRevision = useCallback(() => {
+    setInboxRevision((value) => value + 1)
+  }, [])
 
   const applyCreatedNotification = useCallback((notification) => {
     if (!notification?.id || seenIdsRef.current.has(notification.id)) {
@@ -121,20 +145,34 @@ export function NotificationProvider({ children }) {
     }
     seenIdsRef.current.add(notification.id)
     socketBufferRef.current.set(notification.id, notification)
-    setRecent((prev) => mergeRecent(prev, socketBufferRef.current))
+    if (recentWantedRef.current) {
+      setRecent((prev) => mergeRecent(prev, socketBufferRef.current))
+    }
     if (!notification.is_read) {
       setUnreadCount((count) => count + 1)
     }
-    scheduleUnreadRefresh()
-  }, [scheduleUnreadRefresh])
+    bumpInboxRevision()
+  }, [bumpInboxRevision])
 
   const applyRemovedNotification = useCallback((id) => {
     if (!id) return
     seenIdsRef.current.delete(id)
+    const buffered = socketBufferRef.current.get(id)
     socketBufferRef.current.delete(id)
-    setRecent((prev) => prev.filter((item) => item.id !== id))
-    void refreshUnreadCount()
-  }, [refreshUnreadCount])
+    setRecent((prev) => {
+      const existing = prev.find((item) => item.id === id)
+      const wasUnread = Boolean(
+        (existing && !existing.is_read) || (buffered && !buffered.is_read),
+      )
+      if (wasUnread) {
+        queueMicrotask(() => {
+          setUnreadCount((count) => Math.max(0, count - 1))
+        })
+      }
+      return prev.filter((item) => item.id !== id)
+    })
+    bumpInboxRevision()
+  }, [bumpInboxRevision])
 
   const refresh = useCallback(async () => {
     await refreshUnreadCount()
@@ -153,22 +191,22 @@ export function NotificationProvider({ children }) {
     if (!isAuthenticated) {
       setUnreadCount(0)
       setRecent([])
+      recentWantedRef.current = false
       seenIdsRef.current = new Set()
       socketBufferRef.current = new Map()
-      if (unreadRefreshTimerRef.current !== null) {
-        window.clearTimeout(unreadRefreshTimerRef.current)
-        unreadRefreshTimerRef.current = null
-      }
+      disconnectNotificationsSocket()
+      socketConnectedRef.current = false
+      hasSocketConnectedOnceRef.current = false
       return undefined
     }
 
     let cancelled = false
-    refreshUnreadCount()
+    void refreshUnreadCount()
 
     intervalRef.current = window.setInterval(() => {
       if (cancelled) return
       if (!socketConnectedRef.current) {
-        refreshUnreadCount()
+        void refreshUnreadCount()
       }
     }, POLL_INTERVAL_MS)
 
@@ -180,8 +218,6 @@ export function NotificationProvider({ children }) {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      disconnectNotificationsSocket()
-      socketConnectedRef.current = false
       return undefined
     }
 
@@ -194,9 +230,13 @@ export function NotificationProvider({ children }) {
       applyRemovedNotification(payload?.id)
     }
     const onConnect = () => {
+      const shouldResync = hasSocketConnectedOnceRef.current
       socketConnectedRef.current = true
-      void refreshUnreadCount()
-      void fetchRecent()
+      hasSocketConnectedOnceRef.current = true
+      // Initial unread comes from the auth effect; only re-sync after a reconnect.
+      if (shouldResync) {
+        void refreshUnreadCount()
+      }
     }
     const onDisconnect = () => {
       socketConnectedRef.current = false
@@ -208,7 +248,8 @@ export function NotificationProvider({ children }) {
     socket.on('disconnect', onDisconnect)
 
     if (socket.connected) {
-      onConnect()
+      socketConnectedRef.current = true
+      hasSocketConnectedOnceRef.current = true
     }
 
     return () => {
@@ -216,40 +257,57 @@ export function NotificationProvider({ children }) {
       socket.off(NOTIFICATION_REMOVED_EVENT, onRemoved)
       socket.off('connect', onConnect)
       socket.off('disconnect', onDisconnect)
-      disconnectNotificationsSocket()
-      socketConnectedRef.current = false
+      // Keep the shared socket alive across remounts; disconnect only on logout.
     }
   }, [
     isAuthenticated,
     applyCreatedNotification,
     applyRemovedNotification,
     refreshUnreadCount,
-    fetchRecent,
   ])
 
   const markRead = useCallback(
     async (id) => {
       await notificationService.markRead(id)
       socketBufferRef.current.delete(id)
-      await Promise.all([refreshUnreadCount(), fetchRecent()])
+      setRecent((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? { ...item, is_read: true, read_at: item.read_at || new Date().toISOString() }
+            : item,
+        ),
+      )
+      setUnreadCount((count) => Math.max(0, count - 1))
+      void refreshUnreadCount()
     },
-    [refreshUnreadCount, fetchRecent],
+    [refreshUnreadCount],
   )
 
   const markAllRead = useCallback(async () => {
     await notificationService.markAllRead()
     socketBufferRef.current.clear()
-    await Promise.all([refreshUnreadCount(), fetchRecent()])
-  }, [refreshUnreadCount, fetchRecent])
+    setRecent((prev) => prev.map((item) => ({ ...item, is_read: true })))
+    setUnreadCount(0)
+    void refreshUnreadCount()
+  }, [refreshUnreadCount])
 
   const deleteNotification = useCallback(
     async (id) => {
       await notificationService.delete(id)
       seenIdsRef.current.delete(id)
       socketBufferRef.current.delete(id)
-      await Promise.all([refreshUnreadCount(), fetchRecent()])
+      let wasUnread = false
+      setRecent((prev) => {
+        const existing = prev.find((item) => item.id === id)
+        wasUnread = Boolean(existing && !existing.is_read)
+        return prev.filter((item) => item.id !== id)
+      })
+      if (wasUnread) {
+        setUnreadCount((count) => Math.max(0, count - 1))
+      }
+      void refreshUnreadCount()
     },
-    [refreshUnreadCount, fetchRecent],
+    [refreshUnreadCount],
   )
 
   const value = useMemo(
@@ -257,6 +315,7 @@ export function NotificationProvider({ children }) {
       unreadCount,
       recent,
       loading: recentLoading,
+      inboxRevision,
       refresh,
       refreshUnreadCount,
       fetchRecent,
@@ -268,6 +327,7 @@ export function NotificationProvider({ children }) {
       unreadCount,
       recent,
       recentLoading,
+      inboxRevision,
       refresh,
       refreshUnreadCount,
       fetchRecent,

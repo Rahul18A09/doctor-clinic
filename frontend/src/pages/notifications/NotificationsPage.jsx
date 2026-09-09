@@ -25,8 +25,8 @@ export function NotificationsPage() {
   const { showError, showSuccess } = useToast()
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { refresh, markRead, markAllRead, deleteNotification, unreadCount } = useNotifications()
-  const skipUnreadListRefetch = useRef(true)
+  const { refresh, markRead, markAllRead, deleteNotification, unreadCount, inboxRevision } =
+    useNotifications()
   const typeOptions = notificationFilterOptionsForRole(user?.role)
 
   const [items, setItems] = useState([])
@@ -64,14 +64,16 @@ export function NotificationsPage() {
           setVisibleUnread(0)
         } else if (readFilter === 'false') {
           setVisibleUnread(total)
+        } else if (!typeQuery) {
+          // Badge can reuse the shared unread count when no type filter is applied.
+          setVisibleUnread(null)
         } else {
-          const unreadParams = { page: 1, page_size: 1, is_read: 'false' }
-          if (typeQuery) unreadParams.type = typeQuery
+          const unreadParams = { page: 1, page_size: 1, is_read: 'false', type: typeQuery }
           const { data: unreadRes } = await notificationService.list(unreadParams)
-          const unreadTotal = unreadRes.data.pagination.total
-          setVisibleUnread(Math.min(unreadTotal, total))
+          setVisibleUnread(Math.min(unreadRes.data.pagination.total, total))
         }
       } catch (err) {
+        if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return
         const message = err.response?.data?.message || err.message || 'Unable to load notifications.'
         if (!silent) {
           setLoadError(message)
@@ -84,20 +86,35 @@ export function NotificationsPage() {
     [page, typeFilter, readFilter, showError],
   )
 
+  const fetchGenRef = useRef(0)
+
+  useEffect(() => {
+    const gen = ++fetchGenRef.current
+    let cancelled = false
+
+    ;(async () => {
+      if (gen !== fetchGenRef.current) return
+      await fetchNotifications()
+      if (cancelled || gen !== fetchGenRef.current) return
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [fetchNotifications])
+
   const fetchNotificationsRef = useRef(fetchNotifications)
   fetchNotificationsRef.current = fetchNotifications
 
-  useEffect(() => {
-    fetchNotifications()
-  }, [fetchNotifications])
+  const seenInboxRevisionRef = useRef(inboxRevision)
 
   useEffect(() => {
-    if (skipUnreadListRefetch.current) {
-      skipUnreadListRefetch.current = false
-      return
-    }
+    if (seenInboxRevisionRef.current === inboxRevision) return
+    seenInboxRevisionRef.current = inboxRevision
     fetchNotificationsRef.current({ silent: true })
-  }, [unreadCount])
+  }, [inboxRevision])
+
+  const displayUnread = visibleUnread === null ? unreadCount : visibleUnread
 
   const handleRefresh = async () => {
     if (refreshing) return
@@ -113,6 +130,16 @@ export function NotificationsPage() {
     setActionLoading(id)
     try {
       await markRead(id)
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? { ...item, is_read: true, read_at: item.read_at || new Date().toISOString() }
+            : item,
+        ),
+      )
+      if (typeof visibleUnread === 'number' && visibleUnread > 0) {
+        setVisibleUnread((count) => Math.max(0, count - 1))
+      }
     } catch (err) {
       showError(err.response?.data?.message || err.message)
     } finally {
@@ -126,6 +153,13 @@ export function NotificationsPage() {
     if (!item.is_read) {
       try {
         await markRead(item.id)
+        setItems((prev) =>
+          prev.map((row) =>
+            row.id === item.id
+              ? { ...row, is_read: true, read_at: row.read_at || new Date().toISOString() }
+              : row,
+          ),
+        )
       } catch (err) {
         showError(err.response?.data?.message || err.message)
       }
@@ -137,6 +171,8 @@ export function NotificationsPage() {
     setActionLoading('all')
     try {
       await markAllRead()
+      setItems((prev) => prev.map((item) => ({ ...item, is_read: true })))
+      if (typeof visibleUnread === 'number') setVisibleUnread(0)
       showSuccess('All notifications marked as read.')
     } catch (err) {
       showError(err.response?.data?.message || err.message)
@@ -170,9 +206,9 @@ export function NotificationsPage() {
             <h2 className="text-2xl font-bold tracking-tight text-foreground">Notifications</h2>
             <p className="mt-1 text-sm text-muted">
               {pagination.total} total notifications
-              {visibleUnread > 0 ? (
+              {displayUnread > 0 ? (
                 <span className="ml-2 inline-flex items-center rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700">
-                  {visibleUnread} unread
+                  {displayUnread} unread
                 </span>
               ) : null}
             </p>

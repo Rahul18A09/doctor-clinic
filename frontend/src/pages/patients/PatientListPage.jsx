@@ -112,14 +112,15 @@ export function PatientListPage({
         : defaultFilter
     if (!PATIENT_FILTERS.some((f) => f.value === nextFilter)) return
 
-    setPage(1)
-    setFilter(nextFilter)
+    setFilter((current) => (current === nextFilter ? current : nextFilter))
+    setPage((current) => (current === 1 ? current : 1))
     if (nextFilter === 'today') {
-      setDateFilter(getTodayISO())
+      const today = getTodayISO()
+      setDateFilter((current) => (current === today ? current : today))
     } else if (nextFilter === 'waiting' || nextFilter === 'completed' || nextFilter === 'admission_required') {
-      setStatusFilter('')
+      setStatusFilter((current) => (current === '' ? current : ''))
     } else {
-      setDateFilter('')
+      setDateFilter((current) => (current === '' ? current : ''))
     }
   }, [searchParams, defaultFilter])
 
