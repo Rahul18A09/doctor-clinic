@@ -69,6 +69,17 @@ api.interceptors.response.use(
           const access = body.data?.access ?? body.access
           getStorage().setItem(TOKEN_KEY, access)
           originalRequest.headers.Authorization = `Bearer ${access}`
+          // Keep Socket.IO auth in sync after access-token rotation.
+          void import('@/realtime/notificationsSocket')
+            .then(({ connectNotificationsSocket, getNotificationsSocket }) => {
+              const live = getNotificationsSocket()
+              if (live && !live.connected) {
+                connectNotificationsSocket(access)
+              } else if (live) {
+                live.auth = { token: access }
+              }
+            })
+            .catch(() => {})
           return api(originalRequest)
         } catch {
           clearTokens()

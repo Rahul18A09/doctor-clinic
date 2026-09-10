@@ -5,6 +5,7 @@ import { Button, Input, Modal, ModalSpinner, PasswordInput } from '@/components/
 import { useToast } from '@/context/ToastContext'
 import { useAuth } from '@/hooks/useAuth'
 import { CLINIC_NAME } from '@/utils/constants'
+import { formatDateTime } from '@/utils/datetime'
 
 const ROLE_LABELS = {
   ADMIN: 'Doctor',
@@ -21,20 +22,6 @@ function formatPhone(mobile) {
     return `+91 ${digits.slice(0, 5)} ${digits.slice(5)}`
   }
   return mobile || '—'
-}
-
-function formatDateTime(value) {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  }).format(date)
 }
 
 function apiMessage(err, fallback) {

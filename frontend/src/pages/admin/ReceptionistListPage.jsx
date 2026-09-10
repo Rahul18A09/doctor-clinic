@@ -6,15 +6,7 @@ import { Badge, Button, ConfirmDialog, getAppliedSearchFromInput, ListStatus, Re
 import { useToast } from '@/context/ToastContext'
 import { useNotifications } from '@/hooks/useNotifications'
 import { ROUTES } from '@/utils/constants'
-
-function formatDate(iso) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
-}
+import { formatDate } from '@/utils/datetime'
 
 export function ReceptionistListPage() {
   const navigate = useNavigate()

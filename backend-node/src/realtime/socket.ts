@@ -17,6 +17,11 @@ function userRoom(userId: string): string {
   return `user:${userId}`;
 }
 
+function roomSize(userId: string): number {
+  if (!io) return 0;
+  return io.sockets.adapter.rooms.get(userRoom(userId))?.size ?? 0;
+}
+
 function readHandshakeToken(socket: Socket): string | undefined {
   const authToken = socket.handshake.auth?.token;
   if (typeof authToken === "string" && authToken.trim()) {
@@ -82,6 +87,7 @@ export function attachRealtime(httpServer: HttpServer): Server {
       })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : "Token is invalid or expired.";
+        console.warn(`[Socket] auth failed: ${message}`);
         next(new Error(message));
       });
   });
@@ -89,8 +95,18 @@ export function attachRealtime(httpServer: HttpServer): Server {
   io.on("connection", (socket) => {
     const user = socket.data.user as AuthenticatedUser | undefined;
     if (!user) {
+      console.warn("[Socket] connection rejected: missing user");
       socket.disconnect(true);
+      return;
     }
+
+    console.log(
+      `[Socket] connected user=${user.id} sid=${socket.id} room=${userRoom(user.id)}`,
+    );
+
+    socket.on("disconnect", (reason) => {
+      console.log(`[Socket] disconnected user=${user.id} sid=${socket.id} reason=${reason}`);
+    });
   });
 
   return io;
@@ -101,11 +117,31 @@ export function getRealtime(): Server | null {
 }
 
 export function emitNotificationCreated(userId: string, notification: SerializedNotification): void {
-  io?.to(userRoom(userId)).emit(NOTIFICATION_CREATED_EVENT, { notification });
+  if (!io) {
+    console.warn(
+      `[Socket] emit ${NOTIFICATION_CREATED_EVENT} skipped (realtime not attached) user=${userId} id=${notification.id}`,
+    );
+    return;
+  }
+  const size = roomSize(userId);
+  console.log(
+    `[Socket] emit ${NOTIFICATION_CREATED_EVENT} → ${userRoom(userId)} id=${notification.id} listeners=${size}`,
+  );
+  io.to(userRoom(userId)).emit(NOTIFICATION_CREATED_EVENT, { notification });
 }
 
 export function emitNotificationRemoved(userId: string, id: string): void {
-  io?.to(userRoom(userId)).emit(NOTIFICATION_REMOVED_EVENT, { id });
+  if (!io) {
+    console.warn(
+      `[Socket] emit ${NOTIFICATION_REMOVED_EVENT} skipped (realtime not attached) user=${userId} id=${id}`,
+    );
+    return;
+  }
+  const size = roomSize(userId);
+  console.log(
+    `[Socket] emit ${NOTIFICATION_REMOVED_EVENT} → ${userRoom(userId)} id=${id} listeners=${size}`,
+  );
+  io.to(userRoom(userId)).emit(NOTIFICATION_REMOVED_EVENT, { id });
 }
 
 export async function closeRealtime(): Promise<void> {

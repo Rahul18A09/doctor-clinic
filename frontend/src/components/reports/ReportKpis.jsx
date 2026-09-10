@@ -17,7 +17,7 @@ function Icon({ children }) {
 
 const ICONS = {
   visits: (
-    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
+    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-600 sm:h-11 sm:w-11">
       <Icon>
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
@@ -27,7 +27,7 @@ const ICONS = {
     </span>
   ),
   patients: (
-    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 sm:h-11 sm:w-11">
       <Icon>
         <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
         <circle cx="12" cy="7" r="4" />
@@ -35,7 +35,7 @@ const ICONS = {
     </span>
   ),
   consultations: (
-    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600 sm:h-11 sm:w-11">
       <Icon>
         <circle cx="12" cy="12" r="3" />
         <path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1" />
@@ -43,7 +43,7 @@ const ICONS = {
     </span>
   ),
   cancelled: (
-    <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-600">
+    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-50 text-red-600 sm:h-11 sm:w-11">
       <Icon>
         <circle cx="12" cy="12" r="10" />
         <path d="m15 9-6 6M9 9l6 6" />
@@ -68,9 +68,12 @@ function Trend({ percent }) {
   )
 }
 
+const KPI_CARD_CLASS =
+  'flex h-full min-h-[6.5rem] flex-col justify-center rounded-2xl border border-border bg-card p-4 shadow-sm sm:min-h-[7rem] sm:p-5'
+
 export function ReportKpiCard({ title, metric, icon, periodLabel, loading }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+    <div className={KPI_CARD_CLASS}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-sm font-medium text-muted">{title}</p>
@@ -88,10 +91,26 @@ export function ReportKpiCard({ title, metric, icon, periodLabel, loading }) {
   )
 }
 
+export function ReportSimpleKpiCard({ label, value, valueClassName = 'text-foreground', loading = false }) {
+  const display =
+    loading
+      ? '—'
+      : typeof value === 'number'
+        ? value.toLocaleString('en-IN')
+        : value ?? 0
+
+  return (
+    <div className={KPI_CARD_CLASS}>
+      <p className="text-sm font-medium text-muted">{label}</p>
+      <p className={`mt-1.5 text-2xl font-bold tracking-tight sm:text-3xl ${valueClassName}`}>{display}</p>
+    </div>
+  )
+}
+
 export function ReportKpiRow({ kpis, dayCount, loading }) {
   const periodLabel = `vs previous ${dayCount || 30} days`
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
       <ReportKpiCard title="Total Visits" metric={kpis?.total_visits} icon="visits" periodLabel={periodLabel} loading={loading} />
       <ReportKpiCard
         title="Unique Patients"
@@ -114,6 +133,22 @@ export function ReportKpiRow({ kpis, dayCount, loading }) {
         periodLabel={periodLabel}
         loading={loading}
       />
+    </div>
+  )
+}
+
+export function ReportSimpleKpiRow({ items = [], loading = false }) {
+  return (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+      {items.map((item) => (
+        <ReportSimpleKpiCard
+          key={item.label}
+          label={item.label}
+          value={item.value}
+          valueClassName={item.valueClassName}
+          loading={loading}
+        />
+      ))}
     </div>
   )
 }

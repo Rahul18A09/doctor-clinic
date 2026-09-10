@@ -8,18 +8,8 @@ import { BackButton, Button, CompleteTreatmentDialog, ConfirmDialog, Input } fro
 import { useToast } from '@/context/ToastContext'
 import { useNotifications } from '@/hooks/useNotifications'
 import { ADMISSION_STATUS, CARE_TYPE, CONSULTATION_TABS, PATIENT_STATUS, ROUTES, isAdmissionPending } from '@/utils/constants'
+import { formatDateTime } from '@/utils/datetime'
 import { formatTokenForUi } from '@/utils/formatToken'
-
-function formatDate(iso) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 function DetailRow({ label, value }) {
   return (
@@ -272,7 +262,7 @@ export function ConsultationPage() {
           <DetailRow label="Address" value={patient.address} />
           <DetailRow label="Chief Complaint" value={patient.chief_complaint} />
           <DetailRow label="Registered By" value={patient.created_by_name} />
-          <DetailRow label="Registered Time" value={formatDate(patient.created_at)} />
+          <DetailRow label="Registered Time" value={formatDateTime(patient.created_at)} />
         </dl>
       </SectionCard>
 

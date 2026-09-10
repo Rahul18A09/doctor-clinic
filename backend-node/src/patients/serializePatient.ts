@@ -1,4 +1,4 @@
-import { toDjangoIso } from "../auth/iso";
+import { toIsoUtc } from "../http/iso";
 import { PatientStatus, normalizeAdmissionStatus } from "../constants";
 import type { AssignedBedInfo } from "./assignedBeds";
 import { assignedBedsByPatientId } from "./assignedBeds";
@@ -50,7 +50,7 @@ function nullableNumber(value: number | null | undefined): number | null {
   return value === undefined || value === null ? null : value;
 }
 
-/** Matches Django `PatientSerializer.to_representation`. */
+/** Serialize a patient document for API responses. */
 export function serializePatient(patient: {
   _id?: { toString(): string };
   id?: string;
@@ -104,9 +104,9 @@ export function serializePatient(patient: {
     status: patient.status,
     created_by: patient.created_by,
     created_by_name: patient.created_by_name || "",
-    created_at: toDjangoIso(patient.created_at),
-    updated_at: toDjangoIso(patient.updated_at),
-    completed_at: toDjangoIso(patient.completed_at || patient.consultation_completed_at),
+    created_at: toIsoUtc(patient.created_at),
+    updated_at: toIsoUtc(patient.updated_at),
+    completed_at: toIsoUtc(patient.completed_at || patient.consultation_completed_at),
     is_editable_by_receptionist: patient.status === PatientStatus.WAITING,
     is_editable_by_admin: true,
     doctor_notes: patient.doctor_notes || "",
@@ -117,16 +117,16 @@ export function serializePatient(patient: {
     pulse: patient.pulse || "",
     weight: nullableNumber(patient.weight),
     height: nullableNumber(patient.height),
-    consultation_started_at: toDjangoIso(patient.consultation_started_at),
-    consultation_completed_at: toDjangoIso(patient.consultation_completed_at),
+    consultation_started_at: toIsoUtc(patient.consultation_started_at),
+    consultation_completed_at: toIsoUtc(patient.consultation_completed_at),
     consulted_by: patient.consulted_by || "",
     consulted_by_name: patient.consulted_by_name || "",
     updated_by: patient.updated_by || "",
     updated_by_name: patient.updated_by_name || "",
     care_type: patient.care_type || "",
     admission_status: normalizeAdmissionStatus(patient.care_type, patient.admission_status),
-    admitted_at: toDjangoIso(patient.admitted_at),
-    discharged_at: toDjangoIso(patient.discharged_at),
+    admitted_at: toIsoUtc(patient.admitted_at),
+    discharged_at: toIsoUtc(patient.discharged_at),
     assigned_bed: assignedBed,
   };
 }

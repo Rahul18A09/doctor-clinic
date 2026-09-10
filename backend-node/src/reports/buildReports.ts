@@ -1,5 +1,5 @@
 import { PatientStatus } from "../constants";
-import { toDjangoIso } from "../auth/iso";
+import { toIsoUtc } from "../http/iso";
 import { buildPaginationMeta, type ParsedPagination } from "../http/pagination";
 import { Patient } from "../models/patient.model";
 import { formatTokenForDisplay } from "../patients/tokens";
@@ -177,7 +177,7 @@ function serializeVisit(patient: {
 }): ReportVisitRow {
   return {
     id: patient.id ?? String(patient._id),
-    created_at: toDjangoIso(patient.created_at),
+    created_at: toIsoUtc(patient.created_at),
     patient_name: patient.patient_name,
     patient_id: permanentPatientId(patient),
     token_number: formatTokenForDisplay(patient.token_number),
@@ -187,8 +187,8 @@ function serializeVisit(patient: {
     chief_complaint: patient.chief_complaint || "",
     diagnosis: patient.diagnosis || "",
     consulted_by_name: patient.consulted_by_name || "",
-    consultation_started_at: toDjangoIso(patient.consultation_started_at),
-    consultation_completed_at: toDjangoIso(
+    consultation_started_at: toIsoUtc(patient.consultation_started_at),
+    consultation_completed_at: toIsoUtc(
       patient.consultation_completed_at || patient.completed_at,
     ),
   };

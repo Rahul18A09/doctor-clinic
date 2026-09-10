@@ -1,4 +1,4 @@
-import { toDjangoIso } from "../auth/iso";
+import { toIsoUtc } from "../http/iso";
 import type { BedStatus, RoomType } from "../constants";
 import type { BedDocument } from "../models/bed.model";
 import type { RoomDocument } from "../models/room.model";
@@ -54,8 +54,8 @@ export function serializeRoom(
     notes: room.notes ?? "",
     bed_count: occupancy.bed_count,
     available_count: occupancy.available_count,
-    created_at: toDjangoIso(room.created_at),
-    updated_at: toDjangoIso(room.updated_at),
+    created_at: toIsoUtc(room.created_at),
+    updated_at: toIsoUtc(room.updated_at),
   };
 }
 
@@ -79,8 +79,8 @@ export function serializeBed(
     status: bed.status,
     patient_id: patientId,
     patient_name: options.patient_name ?? null,
-    assigned_at: toDjangoIso(bed.assigned_at),
-    created_at: toDjangoIso(bed.created_at),
-    updated_at: toDjangoIso(bed.updated_at),
+    assigned_at: toIsoUtc(bed.assigned_at),
+    created_at: toIsoUtc(bed.created_at),
+    updated_at: toIsoUtc(bed.updated_at),
   };
 }

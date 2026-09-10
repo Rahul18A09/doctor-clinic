@@ -1,5 +1,5 @@
 import type { ClinicSettingsPayload } from "./defaults";
-import { toDjangoIso } from "../auth/iso";
+import { toIsoUtc } from "../http/iso";
 import type { ISettings } from "../models/settings.model";
 
 export function serializeSettings(doc: ISettings): ClinicSettingsPayload & {
@@ -34,6 +34,6 @@ export function serializeSettings(doc: ISettings): ClinicSettingsPayload & {
       timezone: doc.preferences.timezone,
       language: doc.preferences.language,
     },
-    updated_at: toDjangoIso(doc.updated_at),
+    updated_at: toIsoUtc(doc.updated_at),
   };
 }

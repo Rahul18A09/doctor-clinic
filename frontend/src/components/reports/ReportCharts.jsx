@@ -15,9 +15,9 @@ function niceMax(value) {
 }
 
 export function LineChart({ data = [], emptyLabel = 'No visit data for this period.' }) {
-  const width = 640
-  const height = 220
-  const pad = { top: 12, right: 8, bottom: 32, left: 32 }
+  const width = 720
+  const height = 240
+  const pad = { top: 8, right: 12, bottom: 28, left: 30 }
   const innerW = width - pad.left - pad.right
   const innerH = height - pad.top - pad.bottom
   const points = Array.isArray(data) ? data : []
@@ -31,29 +31,53 @@ export function LineChart({ data = [], emptyLabel = 'No visit data for this peri
   const area = coords.length
     ? `${pad.left},${pad.top + innerH} ${polyline} ${coords[coords.length - 1].x},${pad.top + innerH}`
     : ''
-  const labelEvery = Math.max(1, Math.ceil(points.length / 6))
+  const labelEvery = Math.max(1, Math.ceil(points.length / 7))
   const yTicks = [0, 0.5, 1]
+  const gradientId = 'visits-trend-fill'
 
   if (!points.length || points.every((row) => !row.visits)) {
     return (
-      <div className="flex h-52 items-center justify-center text-sm text-muted lg:h-56">{emptyLabel}</div>
+      <div className="flex min-h-[12rem] items-center justify-center text-sm text-muted sm:min-h-[13rem] lg:min-h-[14rem]">
+        {emptyLabel}
+      </div>
     )
   }
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="h-52 w-full lg:h-56" role="img" aria-label="Patient visits trend">
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className="block h-auto w-full"
+      style={{ aspectRatio: `${width} / ${height}` }}
+      role="img"
+      aria-label="Patient visits trend"
+      preserveAspectRatio="xMidYMid meet"
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#2563EB" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#2563EB" stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
       {yTicks.map((tick) => {
         const y = pad.top + innerH - tick * innerH
         return (
           <g key={tick}>
-            <line x1={pad.left} x2={width - pad.right} y1={y} y2={y} stroke="#e2e8f0" strokeWidth="1" />
-            <text x={pad.left - 6} y={y + 4} textAnchor="end" className="fill-slate-400" fontSize="10">
+            <line
+              x1={pad.left}
+              x2={width - pad.right}
+              y1={y}
+              y2={y}
+              stroke="#e2e8f0"
+              strokeWidth="1"
+              strokeDasharray="4 4"
+            />
+            <text x={pad.left - 8} y={y + 3.5} textAnchor="end" className="fill-slate-400" fontSize="11">
               {Math.round(maxValue * tick)}
             </text>
           </g>
         )
       })}
-      <polygon points={area} fill="#2563EB" opacity="0.08" />
+      <polygon points={area} fill={`url(#${gradientId})`} />
       <polyline
         points={polyline}
         fill="none"
@@ -63,7 +87,15 @@ export function LineChart({ data = [], emptyLabel = 'No visit data for this peri
         strokeLinecap="round"
       />
       {coords.map((point, index) => (
-        <circle key={point.date || index} cx={point.x} cy={point.y} r="3.5" fill="#2563EB" />
+        <circle
+          key={point.date || index}
+          cx={point.x}
+          cy={point.y}
+          r="3.5"
+          fill="#2563EB"
+          stroke="#ffffff"
+          strokeWidth="1.5"
+        />
       ))}
       {coords.map((point, index) =>
         index % labelEvery === 0 || index === coords.length - 1 ? (
@@ -73,7 +105,7 @@ export function LineChart({ data = [], emptyLabel = 'No visit data for this peri
             y={height - 8}
             textAnchor="middle"
             className="fill-slate-400"
-            fontSize="10"
+            fontSize="11"
           >
             {formatChartDate(point.date)}
           </text>
@@ -104,7 +136,13 @@ export function DonutChart({ segments = [], total = 0, centerLabel = 'Total', la
 
   if (!safeTotal) {
     return (
-      <div className="flex h-40 items-center justify-center text-sm text-muted">
+      <div
+        className={
+          stacked || balanced
+            ? 'flex h-40 items-center justify-center text-sm text-muted'
+            : 'flex h-44 items-center justify-center text-sm text-muted sm:h-48'
+        }
+      >
         No consultation data for this period.
       </div>
     )
@@ -116,16 +154,16 @@ export function DonutChart({ segments = [], total = 0, centerLabel = 'Total', la
         stacked
           ? 'flex w-full flex-col items-center gap-4'
           : balanced
-            ? 'flex w-full min-w-0 flex-col items-center gap-5 sm:flex-row sm:justify-center sm:gap-10'
-            : 'flex w-full min-w-0 items-center gap-3 sm:gap-4'
+            ? 'flex w-full min-w-0 flex-col items-center gap-5 sm:flex-row sm:items-center sm:justify-center sm:gap-8'
+            : 'flex h-44 w-full min-w-0 items-center justify-center gap-4 sm:h-48 sm:gap-5'
       }
     >
       <svg
         viewBox={`0 0 ${size} ${size}`}
         className={
           stacked || balanced
-            ? 'h-40 w-40 shrink-0 sm:h-44 sm:w-44'
-            : 'h-32 w-32 shrink-0 sm:h-36 sm:w-36 lg:h-40 lg:w-40'
+            ? 'h-36 w-36 shrink-0 sm:h-40 sm:w-40'
+            : 'h-28 w-28 shrink-0 sm:h-32 sm:w-32'
         }
         role="img"
         aria-label="Consultation status"
@@ -165,7 +203,7 @@ export function DonutChart({ segments = [], total = 0, centerLabel = 'Total', la
             ? 'w-full space-y-2.5'
             : balanced
               ? 'w-full max-w-[16rem] space-y-2.5 sm:w-[16rem] sm:shrink-0'
-              : 'min-w-0 flex-1 space-y-2'
+              : 'min-w-0 max-w-[11rem] flex-1 space-y-2.5 sm:max-w-none'
         }
       >
         {segments.map((segment) => {
@@ -214,7 +252,15 @@ export function GroupedBarChart({ data = [], emptyLabel = 'No comparison data fo
           const y = pad.top + innerH - tick * innerH
           return (
             <g key={tick}>
-              <line x1={pad.left} x2={width - pad.right} y1={y} y2={y} stroke="#e2e8f0" strokeWidth="1" />
+              <line
+                x1={pad.left}
+                x2={width - pad.right}
+                y1={y}
+                y2={y}
+                stroke="#e2e8f0"
+                strokeWidth="1"
+                strokeDasharray="4 4"
+              />
               <text x={pad.left - 6} y={y + 4} textAnchor="end" className="fill-slate-400" fontSize="10">
                 {Math.round(maxValue * tick)}
               </text>
@@ -233,7 +279,7 @@ export function GroupedBarChart({ data = [], emptyLabel = 'No comparison data fo
                 width={barWidth}
                 height={Math.max(prevH, 0)}
                 rx="3"
-                fill="#cbd5e1"
+                fill="#93c5fd"
               />
               <rect
                 x={groupX + 2}
@@ -252,10 +298,10 @@ export function GroupedBarChart({ data = [], emptyLabel = 'No comparison data fo
       </svg>
       <div className="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted">
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-primary-600" /> This Period
+          <span className="h-2.5 w-2.5 rounded-full bg-primary-600" /> This Period
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-slate-300" /> Previous Period
+          <span className="h-2.5 w-2.5 rounded-full bg-sky-300" /> Previous Period
         </span>
       </div>
     </div>
@@ -273,11 +319,11 @@ export function ReceptionistBars({ rows = [] }) {
   )
 
   return (
-    <ul className="space-y-4">
+    <ul className="space-y-5">
       {rows.map((row) => (
         <li key={row.id || row.full_name} className="min-w-0">
-          <p className="mb-2 truncate text-sm font-medium text-foreground">{row.full_name || 'Unknown'}</p>
-          <div className="space-y-1.5">
+          <p className="mb-2.5 truncate text-sm font-semibold text-foreground">{row.full_name || 'Unknown'}</p>
+          <div className="space-y-2">
             <div className="flex items-center gap-3">
               <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
                 <div
@@ -285,30 +331,30 @@ export function ReceptionistBars({ rows = [] }) {
                   style={{ width: `${Math.round(((row.patients_registered || 0) / maxValue) * 100)}%` }}
                 />
               </div>
-              <span className="w-8 shrink-0 text-right text-xs font-medium text-foreground">
+              <span className="w-8 shrink-0 text-right text-xs font-semibold tabular-nums text-foreground">
                 {row.patients_registered || 0}
               </span>
             </div>
             <div className="flex items-center gap-3">
               <div className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-100">
                 <div
-                  className="h-full rounded-full bg-primary-200"
+                  className="h-full rounded-full bg-sky-300"
                   style={{ width: `${Math.round(((row.visits_created || 0) / maxValue) * 100)}%` }}
                 />
               </div>
-              <span className="w-8 shrink-0 text-right text-xs font-medium text-muted">
+              <span className="w-8 shrink-0 text-right text-xs font-semibold tabular-nums text-foreground">
                 {row.visits_created || 0}
               </span>
             </div>
           </div>
         </li>
       ))}
-      <li className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-xs text-muted">
+      <li className="flex flex-wrap gap-x-5 gap-y-1 border-t border-border pt-3 text-xs text-muted">
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-primary-600" /> Patients Registered
+          <span className="h-2.5 w-2.5 rounded-full bg-primary-600" /> Patients Registered
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-primary-200" /> Visits Created
+          <span className="h-2.5 w-2.5 rounded-full bg-sky-300" /> Visits Created
         </span>
       </li>
     </ul>

@@ -1,4 +1,5 @@
 import { BED_STATUS, BED_STATUS_LABELS, ROOM_TYPE_OPTIONS } from '@/utils/constants'
+import { formatDateTime } from '@/utils/datetime'
 
 const EMPTY_COUNTS = {
   available: 0,
@@ -73,12 +74,5 @@ export function applyApiFieldErrors(setError, error) {
 }
 
 export function formatAssignedAt(iso) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatDateTime(iso)
 }

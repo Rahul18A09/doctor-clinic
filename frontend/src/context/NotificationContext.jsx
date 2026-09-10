@@ -6,6 +6,7 @@ import {
   NOTIFICATION_REMOVED_EVENT,
   connectNotificationsSocket,
   disconnectNotificationsSocket,
+  getNotificationsSocket,
 } from '@/realtime/notificationsSocket'
 
 const POLL_INTERVAL_MS = 60_000
@@ -40,7 +41,7 @@ function mergeRecent(apiResults, socketBuffer) {
 }
 
 export function NotificationProvider({ children }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, accessToken } = useAuth()
   const [unreadCount, setUnreadCount] = useState(0)
   const [recent, setRecent] = useState([])
   const [recentLoading, setRecentLoading] = useState(false)
@@ -205,6 +206,14 @@ export function NotificationProvider({ children }) {
 
     intervalRef.current = window.setInterval(() => {
       if (cancelled) return
+      // Keep the fallback flag aligned with the live socket (Strict Mode / HMR safe).
+      const liveConnected = Boolean(getNotificationsSocket()?.connected)
+      if (liveConnected) {
+        socketConnectedRef.current = true
+        hasSocketConnectedOnceRef.current = true
+      } else {
+        socketConnectedRef.current = false
+      }
       if (!socketConnectedRef.current) {
         void refreshUnreadCount()
       }
@@ -217,16 +226,24 @@ export function NotificationProvider({ children }) {
   }, [isAuthenticated, refreshUnreadCount, stopPolling])
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !accessToken) {
       return undefined
     }
 
-    const socket = connectNotificationsSocket()
+    const socket = connectNotificationsSocket(accessToken)
+    if (!socket) {
+      return undefined
+    }
 
     const onCreated = (payload) => {
-      applyCreatedNotification(payload?.notification)
+      const notification = payload?.notification
+      console.log(
+        `[Socket] received ${NOTIFICATION_CREATED_EVENT} id=${notification?.id || '?'}`,
+      )
+      applyCreatedNotification(notification)
     }
     const onRemoved = (payload) => {
+      console.log(`[Socket] received ${NOTIFICATION_REMOVED_EVENT} id=${payload?.id || '?'}`)
       applyRemovedNotification(payload?.id)
     }
     const onConnect = () => {
@@ -241,11 +258,16 @@ export function NotificationProvider({ children }) {
     const onDisconnect = () => {
       socketConnectedRef.current = false
     }
+    const onConnectError = (error) => {
+      socketConnectedRef.current = false
+      console.warn(`[Socket] context connect_error: ${error?.message || error}`)
+    }
 
     socket.on(NOTIFICATION_CREATED_EVENT, onCreated)
     socket.on(NOTIFICATION_REMOVED_EVENT, onRemoved)
     socket.on('connect', onConnect)
     socket.on('disconnect', onDisconnect)
+    socket.on('connect_error', onConnectError)
 
     if (socket.connected) {
       socketConnectedRef.current = true
@@ -257,10 +279,12 @@ export function NotificationProvider({ children }) {
       socket.off(NOTIFICATION_REMOVED_EVENT, onRemoved)
       socket.off('connect', onConnect)
       socket.off('disconnect', onDisconnect)
+      socket.off('connect_error', onConnectError)
       // Keep the shared socket alive across remounts; disconnect only on logout.
     }
   }, [
     isAuthenticated,
+    accessToken,
     applyCreatedNotification,
     applyRemovedNotification,
     refreshUnreadCount,

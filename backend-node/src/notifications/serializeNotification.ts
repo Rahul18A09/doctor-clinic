@@ -1,4 +1,4 @@
-import { toDjangoIso } from "../auth/iso";
+import { toIsoUtc } from "../http/iso";
 import type { NotificationDocument } from "../models/notification.model";
 import { normalizeStoredType } from "./visibility";
 
@@ -26,12 +26,12 @@ export function serializeNotification(doc: NotificationDocument): SerializedNoti
     title: doc.title,
     message: doc.message,
     is_read: doc.is_read,
-    read_at: toDjangoIso(doc.read_at),
+    read_at: toIsoUtc(doc.read_at),
     related_id: doc.related_id ?? "",
     patient_name: doc.patient_name ?? "",
     token_number: doc.token_number ?? "",
     visit_number: Number.isFinite(Number(doc.visit_number)) ? Number(doc.visit_number) : null,
-    created_at: toDjangoIso(doc.created_at),
-    updated_at: toDjangoIso(doc.updated_at),
+    created_at: toIsoUtc(doc.created_at),
+    updated_at: toIsoUtc(doc.updated_at),
   };
 }

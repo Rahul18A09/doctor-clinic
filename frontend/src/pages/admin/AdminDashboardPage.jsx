@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { bedService } from '@/api/beds'
 import { doctorConsultationService } from '@/api/doctor'
+import { BedStatCard } from '@/components/beds/BedStatCard'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { RefreshButton } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
+import { useNotifications } from '@/hooks/useNotifications'
 import { CONSULTATION_TABS, ROUTES } from '@/utils/constants'
+import { LuBedDouble, LuPercent, LuUser } from 'react-icons/lu'
 
 function MdOutlineKeyboardArrowRight({ className }) {
   return (
@@ -18,6 +22,54 @@ function MdOutlineKeyboardArrowRight({ className }) {
     </svg>
   )
 }
+
+const EMPTY_BED_OVERVIEW = {
+  total: 0,
+  occupied: 0,
+  available: 0,
+  currentInpatients: 0,
+  occupancyPercent: 0,
+}
+
+const ICON_CLASS = 'h-5 w-5 sm:h-6 sm:w-6'
+
+const bedOverviewCards = [
+  {
+    key: 'total',
+    title: 'Total Beds',
+    hint: 'All configured beds',
+    tone: 'purple',
+    icon: <LuBedDouble className={ICON_CLASS} aria-hidden="true" />,
+  },
+  {
+    key: 'occupied',
+    title: 'Occupied Beds',
+    hint: 'Beds currently occupied',
+    tone: 'sky',
+    icon: <LuUser className={ICON_CLASS} aria-hidden="true" />,
+  },
+  {
+    key: 'available',
+    title: 'Available Beds',
+    hint: 'Ready for assignment',
+    tone: 'green',
+    icon: <LuBedDouble className={ICON_CLASS} aria-hidden="true" />,
+  },
+  {
+    key: 'currentInpatients',
+    title: 'Current Inpatients',
+    hint: 'Admission status Admitted',
+    tone: 'blue',
+    icon: <LuUser className={ICON_CLASS} aria-hidden="true" />,
+  },
+  {
+    key: 'occupancyPercent',
+    title: 'Occupancy %',
+    hint: 'Occupied ÷ total beds',
+    tone: 'orange',
+    icon: <LuPercent className={ICON_CLASS} aria-hidden="true" />,
+  },
+]
 
 const statConfig = [
   {
@@ -56,6 +108,8 @@ const statConfig = [
 
 export function AdminDashboardPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
+  const { inboxRevision } = useNotifications()
   const [stats, setStats] = useState({
     waiting: 0,
     in_consultation: 0,
@@ -63,8 +117,11 @@ export function AdminDashboardPage() {
     completed_today: 0,
     today: 0,
   })
+  const [bedOverview, setBedOverview] = useState(EMPTY_BED_OVERVIEW)
   const [loading, setLoading] = useState(true)
+  const [bedsLoading, setBedsLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const seenInboxRevisionRef = useRef(inboxRevision)
 
   const fetchStats = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true)
@@ -78,18 +135,65 @@ export function AdminDashboardPage() {
     }
   }, [])
 
+  const fetchBedOverview = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setBedsLoading(true)
+    try {
+      const { data: res } = await bedService.summary()
+      const payload = res?.data || {}
+      const summary = payload.summary || {}
+      const total = Number(summary.total) || 0
+      const occupied = Number(summary.occupied) || 0
+      const available = Number(summary.available) || 0
+      const currentInpatients =
+        payload.current_inpatients != null
+          ? Number(payload.current_inpatients) || 0
+          : occupied
+      const occupancyPercent =
+        payload.occupancy_percent != null
+          ? Number(payload.occupancy_percent) || 0
+          : total > 0
+            ? Math.round((occupied / total) * 100)
+            : 0
+      setBedOverview({
+        total,
+        occupied,
+        available,
+        currentInpatients,
+        occupancyPercent,
+      })
+    } catch {
+      // Keep existing bed overview on silent refresh failure.
+    } finally {
+      if (!silent) setBedsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
-    fetchStats()
-  }, [fetchStats])
+    void fetchStats()
+    void fetchBedOverview()
+  }, [fetchStats, fetchBedOverview])
+
+  // Assign/release bed events arrive over the existing Socket.IO notification channel.
+  useEffect(() => {
+    if (seenInboxRevisionRef.current === inboxRevision) return
+    seenInboxRevisionRef.current = inboxRevision
+    void fetchBedOverview({ silent: true })
+  }, [inboxRevision, fetchBedOverview])
 
   const handleRefresh = async () => {
     if (refreshing) return
     setRefreshing(true)
     try {
-      await fetchStats({ silent: true })
+      await Promise.all([fetchStats({ silent: true }), fetchBedOverview({ silent: true })])
     } finally {
       setRefreshing(false)
     }
+  }
+
+  const bedValue = (key) => {
+    if (bedsLoading) return '—'
+    if (key === 'occupancyPercent') return `${bedOverview.occupancyPercent}%`
+    return String(bedOverview[key] ?? 0)
   }
 
   return (
@@ -128,6 +232,38 @@ export function AdminDashboardPage() {
           </Link>
         ))}
       </div>
+
+      <section className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-lg font-semibold text-foreground">Bed Overview</h3>
+            <p className="mt-1 text-sm text-muted">
+              Live bed occupancy from the beds module.
+            </p>
+          </div>
+          <Link
+            to={ROUTES.ADMIN_BEDS}
+            className="inline-flex items-center gap-0.5 text-sm font-semibold text-primary-600 transition-colors hover:text-primary-700"
+          >
+            View Beds
+            <MdOutlineKeyboardArrowRight className="h-5 w-5" />
+          </Link>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+          {bedOverviewCards.map((card) => (
+            <BedStatCard
+              key={card.key}
+              title={card.title}
+              value={bedValue(card.key)}
+              hint={card.hint}
+              tone={card.tone}
+              icon={card.icon}
+              onClick={() => navigate(ROUTES.ADMIN_BEDS)}
+            />
+          ))}
+        </div>
+      </section>
 
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-6">
         <h3 className="text-lg font-semibold text-foreground">Consultation Queue</h3>

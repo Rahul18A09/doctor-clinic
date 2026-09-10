@@ -2,7 +2,7 @@ import type { Request, RequestHandler, Response } from "express";
 import { Router } from "express";
 
 import { findActiveBedForPatient, releaseActiveBedForPatient } from "../beds/operations";
-import { toDjangoIso } from "../auth/iso";
+import { toIsoUtc } from "../http/iso";
 import { AdmissionStatus, CareType, NotificationType, UserRole, type Gender } from "../constants";
 import { hasFieldErrors, type FieldErrors } from "../http/errors";
 import { buildPaginationMeta, parsePagination } from "../http/pagination";
@@ -411,7 +411,7 @@ function serializeLookupIdentity(identity: PatientIdentity) {
       token_number: formatTokenForDisplay(visit.token_number),
       status: visit.status,
       chief_complaint: visit.chief_complaint || "",
-      created_at: toDjangoIso(visit.created_at),
+      created_at: toIsoUtc(visit.created_at),
     })),
   };
 }
@@ -425,7 +425,7 @@ function serializeLookupMatches(identities: PatientIdentity[]) {
       patient_id: identity.patientId,
       patient_name: identity.latest.patient_name,
       mobile_masked: maskMobile(identity.mobile),
-      last_visit: toDjangoIso(identity.latest.created_at),
+      last_visit: toIsoUtc(identity.latest.created_at),
       visit_count: identity.visitCount,
       next_visit_number: identity.visitCount + 1,
     })),

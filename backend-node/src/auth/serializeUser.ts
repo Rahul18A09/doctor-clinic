@@ -1,4 +1,4 @@
-import { toDjangoIso } from "./iso";
+import { toIsoUtc } from "../http/iso";
 
 export type SerializedUser = {
   id: string;
@@ -31,8 +31,8 @@ export function serializeUser(user: {
     mobile: user.mobile ?? "",
     role: user.role,
     is_active: user.is_active,
-    last_login: toDjangoIso(user.last_login),
-    created_at: toDjangoIso(user.created_at),
-    updated_at: toDjangoIso(user.updated_at),
+    last_login: toIsoUtc(user.last_login),
+    created_at: toIsoUtc(user.created_at),
+    updated_at: toIsoUtc(user.updated_at),
   };
 }

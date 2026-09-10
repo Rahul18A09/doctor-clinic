@@ -2,6 +2,7 @@ import cors from "cors";
 import express, { type ErrorRequestHandler, type Express, type NextFunction, type Request, type Response } from "express";
 
 import { env } from "./config/env";
+import { requestLogger } from "./middleware/requestLogger";
 import authRouter from "./routes/auth.routes";
 import doctorPatientsRouter, { doctorStatsRouter } from "./routes/doctor.routes";
 import docsRouter from "./routes/docs.routes";
@@ -20,6 +21,7 @@ export function createApp(): Express {
 
   app.disable("x-powered-by");
   app.set("etag", false);
+  app.use(requestLogger);
   app.use("/api/v1", (_req: Request, res: Response, next: NextFunction) => {
     res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
     res.set("Pragma", "no-cache");

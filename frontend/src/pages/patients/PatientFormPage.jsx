@@ -7,18 +7,8 @@ import { BackButton, Button, Input, Select } from '@/components/ui'
 import { useToast } from '@/context/ToastContext'
 import { useNotifications } from '@/hooks/useNotifications'
 import { BLOOD_GROUPS, GENDERS, ROUTES } from '@/utils/constants'
+import { formatDateTime } from '@/utils/datetime'
 import { formatTokenForUi } from '@/utils/formatToken'
-
-function formatDate(iso) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 function isMobileQuery(value) {
   return /^[0-9]{10}$/.test(String(value ?? '').trim())
@@ -399,7 +389,7 @@ export function PatientFormPage({
               <div key={match.patient_id} className="rounded-xl border border-border bg-card p-4">
                 <p className="font-semibold text-foreground">{match.patient_name}</p>
                 <p className="mt-1 font-mono text-sm text-muted">{match.mobile_masked}</p>
-                <p className="mt-1 text-sm text-muted">Last visit: {formatDate(match.last_visit)}</p>
+                <p className="mt-1 text-sm text-muted">Last visit: {formatDateTime(match.last_visit)}</p>
                 <Button
                   type="button"
                   size="sm"
@@ -433,7 +423,7 @@ export function PatientFormPage({
                         {match.mobile_masked}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-muted">
-                        {formatDate(match.last_visit)}
+                        {formatDateTime(match.last_visit)}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3 text-right">
                         <Button
@@ -539,7 +529,7 @@ export function PatientFormPage({
                   </div>
                   <PatientStatusBadge status={visit.status} />
                 </div>
-                <p className="mt-2 text-sm text-muted">{formatDate(visit.created_at)}</p>
+                <p className="mt-2 text-sm text-muted">{formatDateTime(visit.created_at)}</p>
                 <Link
                   to={`${listPath}/${visit.id}`}
                   className="mt-3 inline-block text-sm font-medium text-primary-600 hover:underline"
@@ -571,7 +561,7 @@ export function PatientFormPage({
                       <td className="whitespace-nowrap px-4 py-3">
                         <PatientStatusBadge status={visit.status} />
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-muted">{formatDate(visit.created_at)}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-muted">{formatDateTime(visit.created_at)}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-right">
                       <Link
                         to={`${listPath}/${visit.id}`}

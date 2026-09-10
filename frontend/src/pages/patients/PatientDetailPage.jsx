@@ -11,18 +11,8 @@ import { BackButton, Button, ConfirmDialog } from '@/components/ui'
 import { useToast } from '@/context/ToastContext'
 import { useNotifications } from '@/hooks/useNotifications'
 import { ADMISSION_STATUS, CARE_TYPE, isAdmissionPending, ROUTES } from '@/utils/constants'
+import { formatDateTime } from '@/utils/datetime'
 import { formatTokenForUi } from '@/utils/formatToken'
-
-function formatDate(iso) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 function isRequestCanceled(err) {
   return err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError' || err?.name === 'AbortError'
@@ -234,8 +224,8 @@ export function PatientDetailPage({ basePath, canEdit = false, isAdmin = false }
               value={<PatientStatusBadge status={patient.status} />}
             />
             <DetailRow label="Registered By" value={patient.created_by_name} />
-            <DetailRow label="Registered At" value={formatDate(patient.created_at)} />
-            <DetailRow label="Last Updated" value={formatDate(patient.updated_at)} />
+            <DetailRow label="Registered At" value={formatDateTime(patient.created_at)} />
+            <DetailRow label="Last Updated" value={formatDateTime(patient.updated_at)} />
           </dl>
         </div>
 

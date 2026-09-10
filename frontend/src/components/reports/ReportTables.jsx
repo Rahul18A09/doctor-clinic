@@ -1,23 +1,18 @@
 import { Link } from 'react-router-dom'
+import { AiOutlineRight } from 'react-icons/ai'
+import { LuBedDouble, LuCircleCheck, LuCircleX, LuClock, LuLayers, LuUser } from 'react-icons/lu'
 import { PatientStatusBadge } from '@/components/patients/PatientStatusBadge'
 import { Button } from '@/components/ui'
 import { ROUTES } from '@/utils/constants'
+import { formatDate } from '@/utils/datetime'
 import { formatTokenForUi } from '@/utils/formatToken'
 
 function formatReportDate(iso) {
-  if (!iso) return '—'
-  const value = iso.endsWith('Z') ? iso : `${iso}Z`
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
+  return formatDate(iso)
 }
 
 function cellPad(compact) {
-  return compact ? 'px-3 py-2.5' : 'px-3 py-2.5 sm:px-4'
+  return compact ? 'px-4 py-3' : 'px-3 py-2.5 sm:px-4'
 }
 
 export function ReportPagination({ pagination, page, loading, onPageChange }) {
@@ -37,7 +32,7 @@ export function ReportPagination({ pagination, page, loading, onPageChange }) {
   for (let number = start; number <= end; number += 1) pages.push(number)
 
   return (
-    <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-3 sm:px-4">
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 sm:px-5">
       <p className="text-sm text-muted">
         Showing {from} to {to} of {total} entries
       </p>
@@ -162,7 +157,20 @@ export function ReportVisitsTable({
             ))}
           </div>
           <div className="table-scroll hidden lg:block">
-            <table className={`w-full text-left text-sm ${extraColumns ? 'min-w-[56rem]' : 'min-w-[40rem]'}`}>
+            <table
+              className={`w-full text-left text-sm ${
+                extraColumns ? 'min-w-[56rem]' : compact ? 'table-fixed min-w-[36rem]' : 'min-w-[40rem]'
+              }`}
+            >
+              {!extraColumns && compact ? (
+                <colgroup>
+                  <col className="w-[22%]" />
+                  <col className="w-[28%]" />
+                  <col className="w-[16%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[20%]" />
+                </colgroup>
+              ) : null}
           <thead className="border-b border-border bg-surface">
             <tr>
               <th className={`whitespace-nowrap font-medium text-muted ${pad}`}>Date</th>
@@ -188,7 +196,7 @@ export function ReportVisitsTable({
                 <td className={`whitespace-nowrap text-foreground ${pad}`}>
                   {formatReportDate(visit.created_at)}
                 </td>
-                <td className={`max-w-[10rem] font-medium text-foreground sm:max-w-[14rem] ${pad}`}>
+                <td className={`font-medium text-foreground ${compact && !extraColumns ? 'min-w-0' : 'max-w-[10rem] sm:max-w-[14rem]'} ${pad}`}>
                   <Link
                     to={ROUTES.ADMIN_PATIENT_DETAIL.replace(':id', visit.id)}
                     className="block truncate text-primary-600 hover:underline"
@@ -230,14 +238,31 @@ export function ReportVisitsTable({
   )
 }
 
-export function QueuePerformanceCard({ queue, onViewQueue, fill = false }) {
+export function QueuePerformanceCard({ queue, onViewQueue, fill = false, className = '' }) {
   const rows = [
-    { label: 'Total Tokens', value: queue?.total_tokens },
-    { label: 'Completed Tokens', value: queue?.completed_tokens },
-    { label: 'Cancelled Tokens', value: queue?.cancelled_tokens },
+    {
+      label: 'Total Tokens',
+      value: queue?.total_tokens,
+      icon: <LuLayers className="h-4 w-4" aria-hidden="true" />,
+      iconWrap: 'bg-primary-50 text-primary-600',
+    },
+    {
+      label: 'Completed Tokens',
+      value: queue?.completed_tokens,
+      icon: <LuCircleCheck className="h-4 w-4" aria-hidden="true" />,
+      iconWrap: 'bg-emerald-50 text-emerald-600',
+    },
+    {
+      label: 'Cancelled Tokens',
+      value: queue?.cancelled_tokens,
+      icon: <LuCircleX className="h-4 w-4" aria-hidden="true" />,
+      iconWrap: 'bg-red-50 text-red-600',
+    },
     {
       label: 'Average Waiting Time',
       value: queue?.average_waiting_minutes == null ? '—' : `${queue.average_waiting_minutes} mins`,
+      icon: <LuClock className="h-4 w-4" aria-hidden="true" />,
+      iconWrap: 'bg-sky-50 text-sky-600',
     },
   ]
 
@@ -245,22 +270,39 @@ export function QueuePerformanceCard({ queue, onViewQueue, fill = false }) {
     <div
       className={`flex min-w-0 flex-col rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5 ${
         fill ? 'h-full' : ''
-      }`}
+      } ${className}`}
     >
-      <h3 className="text-base font-semibold text-foreground">Queue Performance</h3>
-      <dl className={fill ? 'mt-4 flex flex-1 flex-col justify-between gap-3' : 'mt-4 space-y-3'}>
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600">
+          <LuClock className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-base font-semibold text-foreground">Queue Performance</h3>
+          <p className="mt-0.5 text-sm text-muted">Token queue performance overview</p>
+        </div>
+      </div>
+
+      <dl className={fill ? 'mt-4 flex flex-1 flex-col justify-center gap-2.5' : 'mt-4 space-y-2.5'}>
         {rows.map((row) => (
           <div
             key={row.label}
-            className="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
+            className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2.5 sm:px-3.5"
           >
-            <dt className="text-sm text-muted">{row.label}</dt>
-            <dd className="text-sm font-semibold text-foreground">
+            <dt className="flex min-w-0 items-center gap-2.5">
+              <span
+                className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${row.iconWrap}`}
+              >
+                {row.icon}
+              </span>
+              <span className="truncate text-sm text-foreground">{row.label}</span>
+            </dt>
+            <dd className="shrink-0 text-sm font-semibold tabular-nums text-foreground">
               {typeof row.value === 'number' ? row.value.toLocaleString('en-IN') : row.value ?? 0}
             </dd>
           </div>
         ))}
       </dl>
+
       {onViewQueue && (
         <button
           type="button"
@@ -270,6 +312,69 @@ export function QueuePerformanceCard({ queue, onViewQueue, fill = false }) {
           View Queue Report →
         </button>
       )}
+    </div>
+  )
+}
+
+export function BedAvailabilityCard({ total, occupied, available, loading = false, bedsPath }) {
+  const metrics = [
+    {
+      label: 'Total Beds',
+      value: total,
+      valueClass: 'text-foreground',
+      iconWrap: 'bg-slate-100 text-slate-600',
+      icon: <LuBedDouble className="h-4 w-4" aria-hidden="true" />,
+    },
+    {
+      label: 'Occupied',
+      value: occupied,
+      valueClass: 'text-sky-700',
+      iconWrap: 'bg-sky-50 text-sky-600',
+      icon: <LuUser className="h-4 w-4" aria-hidden="true" />,
+    },
+    {
+      label: 'Available',
+      value: available,
+      valueClass: 'text-emerald-700',
+      iconWrap: 'bg-emerald-50 text-emerald-600',
+      icon: <LuBedDouble className="h-4 w-4" aria-hidden="true" />,
+    },
+  ]
+
+  return (
+    <div className="rounded-2xl border border-border bg-card px-4 py-4 shadow-sm sm:px-5 sm:py-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-base font-semibold text-foreground">Bed Availability</h3>
+        {bedsPath ? (
+          <Link
+            to={bedsPath}
+            className="inline-flex shrink-0 items-center gap-0.5 text-sm font-medium text-primary-600 hover:underline"
+          >
+            View Beds
+            <AiOutlineRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Link>
+        ) : null}
+      </div>
+
+      <div className="mt-3 grid grid-cols-3 divide-x divide-border">
+        {metrics.map((item) => (
+          <div key={item.label} className="min-w-0 px-3 first:pl-0 last:pr-0 sm:px-5">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <span
+                className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-9 sm:w-9 ${item.iconWrap}`}
+              >
+                {item.icon}
+              </span>
+              <div className="min-w-0">
+                <p className={`text-2xl font-bold tracking-tight sm:text-3xl ${item.valueClass}`}>
+                  {loading ? '—' : Number(item.value || 0).toLocaleString('en-IN')}
+                </p>
+                <p className="mt-0.5 text-xs text-muted sm:text-sm">{item.label}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

@@ -1,4 +1,7 @@
 import { ROLES, ROUTES } from '@/utils/constants'
+import { formatRelativeTime, formatDateTime as formatNotificationTime } from '@/utils/datetime'
+
+export { formatRelativeTime, formatNotificationTime }
 
 export const NOTIFICATION_TYPES = {
   PATIENT: 'patient',
@@ -92,33 +95,4 @@ export function notificationTargetPath(item, role) {
   }
 
   return ''
-}
-
-export function formatRelativeTime(iso) {
-  if (!iso) return '—'
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return '—'
-  const seconds = Math.round((Date.now() - date.getTime()) / 1000)
-  if (seconds < 45) return 'Just now'
-  if (seconds < 3600) return `${Math.max(1, Math.floor(seconds / 60))}m ago`
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
-  return date.toLocaleDateString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
-}
-
-export function formatNotificationTime(iso) {
-  if (!iso) return '—'
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }

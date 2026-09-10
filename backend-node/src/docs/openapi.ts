@@ -2266,7 +2266,7 @@ export const openApiDocument: JsonObject = {
         ],
         additionalProperties: false,
         description:
-          "UserSerializer. Does not include password, gender, or is_deleted. Datetimes are Django-like ISO-8601 (often without Z).",
+          "User serializer. Does not include password, gender, or is_deleted. Datetimes are ISO-8601 UTC with a Z suffix.",
         properties: {
           id: { type: "string", description: "MongoDB ObjectId hex string" },
           full_name: { type: "string" },
@@ -3179,6 +3179,16 @@ export const openApiDocument: JsonObject = {
                   maintenance: { type: "integer" },
                   blocked: { type: "integer" },
                 },
+              },
+              total_rooms: { type: "integer" },
+              floors: { type: "array", items: { type: "string" } },
+              current_inpatients: {
+                type: "integer",
+                description: "Patients with admission_status Admitted.",
+              },
+              occupancy_percent: {
+                type: "integer",
+                description: "Round(occupied / total * 100), or 0 when total is 0.",
               },
             },
           },

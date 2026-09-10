@@ -227,6 +227,10 @@ describe("bed management API", { timeout: 120_000 }, () => {
     assert.ok(summary.body.data.total_rooms >= 1);
     assert.ok(Array.isArray(summary.body.data.floors));
     assert.ok(summary.body.data.floors.includes("Bulk-Floor"));
+    assert.equal(typeof summary.body.data.current_inpatients, "number");
+    assert.equal(typeof summary.body.data.occupancy_percent, "number");
+    assert.ok(summary.body.data.current_inpatients >= 1);
+    assert.ok(summary.body.data.occupancy_percent >= 0);
   });
 
   it("does not create a bed past room capacity", async () => {

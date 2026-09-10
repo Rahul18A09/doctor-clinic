@@ -19,7 +19,13 @@ import {
   updateBedStatus,
 } from "../beds/operations";
 import { serializeBed } from "../beds/serialize";
-import { ACTIVE_BED_ASSIGNMENT_STATUSES, BED_STATUSES, BedStatus, type BedStatus as BedStatusValue } from "../constants";
+import {
+  ACTIVE_BED_ASSIGNMENT_STATUSES,
+  AdmissionStatus,
+  BED_STATUSES,
+  BedStatus,
+  type BedStatus as BedStatusValue,
+} from "../constants";
 import { hasFieldErrors, type FieldErrors } from "../http/errors";
 import { buildPaginationMeta, parsePagination } from "../http/pagination";
 import {
@@ -42,6 +48,7 @@ import {
 import { authenticate } from "../middleware/authenticate";
 import { canAssignBeds, canManageBeds, canViewBeds } from "../middleware/authorize";
 import { Bed } from "../models/bed.model";
+import { Patient } from "../models/patient.model";
 import { Room } from "../models/room.model";
 import {
   notifyBedAssigned,
@@ -197,18 +204,27 @@ const listAvailableBeds: RequestHandler = async (req: Request, res: Response): P
 };
 
 const getBedSummary: RequestHandler = async (_req: Request, res: Response): Promise<void> => {
-  const [summary, totalRooms, floorValues] = await Promise.all([
+  const [summary, totalRooms, floorValues, currentInpatients] = await Promise.all([
     computeBedSummary(),
     Room.countDocuments().exec(),
     Room.distinct("floor").exec(),
+    Patient.countDocuments({ admission_status: AdmissionStatus.ADMITTED }).exec(),
   ]);
   const floors = floorValues
     .map((value) => String(value || "").trim())
     .filter((value) => value.length > 0)
     .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }));
+  const occupancy_percent =
+    summary.total > 0 ? Math.round((summary.occupied / summary.total) * 100) : 0;
   successResponse(res, {
     message: "Bed summary retrieved successfully.",
-    data: { summary, total_rooms: totalRooms, floors },
+    data: {
+      summary,
+      total_rooms: totalRooms,
+      floors,
+      current_inpatients: currentInpatients,
+      occupancy_percent,
+    },
   });
 };
 

@@ -1,4 +1,4 @@
-import { toDjangoIso } from "../auth/iso";
+import { toIsoUtc } from "../http/iso";
 
 export type SerializedReceptionist = {
   id: string;
@@ -11,7 +11,7 @@ export type SerializedReceptionist = {
   updated_at: string | null;
 };
 
-/** Matches Django `ReceptionistSerializer.to_representation`. */
+/** Serialize a receptionist user for API responses. */
 export function serializeReceptionist(user: {
   _id?: { toString(): string };
   id?: string;
@@ -30,7 +30,7 @@ export function serializeReceptionist(user: {
     mobile: user.mobile ?? "",
     gender: user.gender ?? "",
     is_active: user.is_active,
-    created_at: toDjangoIso(user.created_at),
-    updated_at: toDjangoIso(user.updated_at),
+    created_at: toIsoUtc(user.created_at),
+    updated_at: toIsoUtc(user.updated_at),
   };
 }

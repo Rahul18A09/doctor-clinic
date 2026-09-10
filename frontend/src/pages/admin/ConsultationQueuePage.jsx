@@ -14,17 +14,7 @@ import {
   ROUTES,
 } from '@/utils/constants'
 import { formatTokenForUi } from '@/utils/formatToken'
-
-function formatDate(iso) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
+import { formatDateTime } from '@/utils/datetime'
 
 const TAB_STATUS_MAP = {
   [CONSULTATION_TABS.WAITING]: 'active',
@@ -609,8 +599,8 @@ export function ConsultationQueuePage() {
                       {showStartedColumn && (
                         <td className="whitespace-nowrap px-4 py-4 text-muted sm:px-6">
                           {p.status === PATIENT_STATUS.IN_CONSULTATION
-                            ? formatDate(p.consultation_started_at)
-                            : formatDate(p.created_at)}
+                            ? formatDateTime(p.consultation_started_at)
+                            : formatDateTime(p.created_at)}
                         </td>
                       )}
                       {showCompletedColumn && (
@@ -619,7 +609,7 @@ export function ConsultationQueuePage() {
                             {p.diagnosis || '—'}
                           </td>
                           <td className="whitespace-nowrap px-4 py-4 text-muted sm:px-6">
-                            {formatDate(p.consultation_completed_at)}
+                            {formatDateTime(p.consultation_completed_at)}
                           </td>
                         </>
                       )}

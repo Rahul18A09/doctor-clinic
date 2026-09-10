@@ -7,18 +7,8 @@ import { ViewIconButton, EditIconButton, DeleteIconButton } from '@/components/p
 import { Button, ConfirmDialog, DatePicker, getAppliedSearchFromInput, ListStatus, RefreshButton, Select } from '@/components/ui'
 import { useToast } from '@/context/ToastContext'
 import { PATIENT_FILTERS, PATIENT_STATUS_FILTER_OPTIONS, ROUTES } from '@/utils/constants'
+import { formatDateTime } from '@/utils/datetime'
 import { formatTokenForUi } from '@/utils/formatToken'
-
-function formatDate(iso) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 function getTodayISO() {
   const d = new Date()
@@ -384,7 +374,7 @@ export function PatientListPage({
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-muted">Registered</dt>
-                    <dd className="text-right text-foreground">{formatDate(p.created_at)}</dd>
+                    <dd className="text-right text-foreground">{formatDateTime(p.created_at)}</dd>
                   </div>
                 </dl>
                 <div
@@ -446,7 +436,7 @@ export function PatientListPage({
                         <PatientStatusBadge status={p.status} />
                       </td>
                       <td className="whitespace-nowrap px-4 py-4 text-muted sm:px-6">{p.created_by_name || '—'}</td>
-                      <td className="whitespace-nowrap px-4 py-4 text-muted sm:px-6">{formatDate(p.created_at)}</td>
+                      <td className="whitespace-nowrap px-4 py-4 text-muted sm:px-6">{formatDateTime(p.created_at)}</td>
                       <td className="whitespace-nowrap px-4 py-4 sm:px-6">
                         {renderPatientActions(p)}
                       </td>
