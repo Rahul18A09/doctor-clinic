@@ -191,9 +191,18 @@ export function ConsultationQueuePage() {
   const fetchStats = useCallback(async ({ silent = false } = {}) => {
     try {
       const { data: res } = await doctorConsultationService.getStats()
-      setStats(res.data)
+      setStats(
+        res.data ?? {
+          waiting: 0,
+          in_consultation: 0,
+          completed: 0,
+          today: 0,
+        },
+      )
+      return true
     } catch (err) {
       if (!silent) showError(err.response?.data?.message || err.message)
+      return false
     }
   }, [showError])
 
@@ -218,12 +227,14 @@ export function ConsultationQueuePage() {
         setPatients(res.data.results)
         setPagination(res.data.pagination)
         setLoadError('')
+        return true
       } catch (err) {
         const message = err.response?.data?.message || err.message
         if (!silent) {
           setLoadError(message)
           showError(message)
         }
+        return false
       } finally {
         if (!silent) setLoading(false)
       }
@@ -232,9 +243,12 @@ export function ConsultationQueuePage() {
   )
 
   const refreshAll = useCallback(
-    ({ silent = false } = {}) => {
-      fetchStats({ silent })
-      fetchPatients({ silent })
+    async ({ silent = false } = {}) => {
+      const [statsOk, patientsOk] = await Promise.all([
+        fetchStats({ silent }),
+        fetchPatients({ silent }),
+      ])
+      return statsOk && patientsOk
     },
     [fetchStats, fetchPatients]
   )
@@ -244,7 +258,7 @@ export function ConsultationQueuePage() {
       skipAutoFetchRef.current = false
       return
     }
-    refreshAll()
+    void refreshAll()
   }, [refreshAll])
 
   const handleRefresh = async () => {
@@ -261,10 +275,13 @@ export function ConsultationQueuePage() {
     }
     setRefreshing(true)
     try {
-      await Promise.all([
+      const [statsOk, patientsOk] = await Promise.all([
         fetchStats({ silent: true }),
         fetchPatients({ silent: true, search: nextSearch, page: nextPage }),
       ])
+      if (!statsOk || !patientsOk) {
+        showError('Failed to refresh consultations.')
+      }
     } finally {
       setRefreshing(false)
     }
@@ -301,7 +318,7 @@ export function ConsultationQueuePage() {
       await doctorConsultationService.start(patient.id)
       await refreshNotifications()
       showSuccess(`Consultation started for ${patient.patient_name}.`)
-      refreshAll()
+      await refreshAll({ silent: true })
     } catch (err) {
       showError(err.response?.data?.message || err.message)
     } finally {
@@ -320,7 +337,7 @@ export function ConsultationQueuePage() {
       await refreshNotifications()
       setConfirmDialog({ open: false, type: null, patient: null })
       showSuccess('Treatment completed successfully.')
-      refreshAll()
+      await refreshAll({ silent: true })
     } catch (err) {
       showError(err.response?.data?.message || err.message)
     } finally {
@@ -334,7 +351,7 @@ export function ConsultationQueuePage() {
       await doctorConsultationService.cancel(patient.id)
       showSuccess(`${patient.patient_name} returned to waiting queue.`)
       setConfirmDialog({ open: false, type: null, patient: null })
-      refreshAll()
+      await refreshAll({ silent: true })
     } catch (err) {
       showError(err.response?.data?.message || err.message)
     } finally {
@@ -486,7 +503,7 @@ export function ConsultationQueuePage() {
             error={loadError}
             empty
             emptyLabel={emptyMessages[activeTab]}
-            onRetry={() => refreshAll()}
+            onRetry={() => void refreshAll()}
           />
         </div>
       ) : (

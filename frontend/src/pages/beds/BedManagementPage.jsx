@@ -227,12 +227,14 @@ export function BedManagementPage({
         setPatientsById(patientsByIdFromBeds(filtered))
         setPagination(paginationMeta)
         setLoadError('')
+        return true
       } catch (err) {
         const message = getBedsErrorMessage(err, 'Could not load rooms and beds.')
         if (!silent) {
           setLoadError(message)
           showError(message)
         }
+        return false
       } finally {
         if (!silent) setLoading(false)
       }
@@ -245,7 +247,7 @@ export function BedManagementPage({
       skipAutoFetchRef.current = false
       return
     }
-    fetchData()
+    void fetchData()
   }, [fetchData])
 
   const reload = async () => {
@@ -286,7 +288,10 @@ export function BedManagementPage({
     }
     setRefreshing(true)
     try {
-      await fetchData({ silent: true, search: nextSearch, page: nextPage })
+      const ok = await fetchData({ silent: true, search: nextSearch, page: nextPage })
+      if (!ok) {
+        showError('Failed to refresh beds.')
+      }
     } finally {
       setRefreshing(false)
     }
@@ -462,7 +467,7 @@ export function BedManagementPage({
                 type="search"
                 value={searchInput}
                 onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Search room or bed..."
+                placeholder="Search room, bed, patient name, or phone..."
                 className="w-full rounded-xl border border-border bg-white py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
               />
             </label>

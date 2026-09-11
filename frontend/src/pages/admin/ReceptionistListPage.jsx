@@ -52,12 +52,14 @@ export function ReceptionistListPage() {
         setReceptionists(res.data.results)
         setPagination(res.data.pagination)
         setLoadError('')
+        return true
       } catch (err) {
         const message = err.response?.data?.message || err.message
         if (!silent) {
           setLoadError(message)
           showError(message)
         }
+        return false
       } finally {
         if (!silent) setLoading(false)
       }
@@ -70,7 +72,7 @@ export function ReceptionistListPage() {
       skipAutoFetchRef.current = false
       return
     }
-    fetchReceptionists()
+    void fetchReceptionists()
   }, [fetchReceptionists])
 
   const handleRefresh = async () => {
@@ -87,7 +89,10 @@ export function ReceptionistListPage() {
     }
     setRefreshing(true)
     try {
-      await fetchReceptionists({ silent: true, search: nextSearch, page: nextPage })
+      const ok = await fetchReceptionists({ silent: true, search: nextSearch, page: nextPage })
+      if (!ok) {
+        showError('Failed to refresh receptionists.')
+      }
     } finally {
       setRefreshing(false)
     }

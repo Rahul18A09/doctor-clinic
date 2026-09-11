@@ -72,13 +72,15 @@ export function NotificationsPage() {
           const { data: unreadRes } = await notificationService.list(unreadParams)
           setVisibleUnread(Math.min(unreadRes.data.pagination.total, total))
         }
+        return true
       } catch (err) {
-        if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return
+        if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return true
         const message = err.response?.data?.message || err.message || 'Unable to load notifications.'
         if (!silent) {
           setLoadError(message)
           showError(message)
         }
+        return false
       } finally {
         if (!silent) setLoading(false)
       }
@@ -120,7 +122,12 @@ export function NotificationsPage() {
     if (refreshing) return
     setRefreshing(true)
     try {
-      await Promise.all([fetchNotifications({ silent: true }), refresh()])
+      const [listOk] = await Promise.all([fetchNotifications({ silent: true }), refresh()])
+      if (!listOk) {
+        showError('Failed to refresh notifications.')
+      }
+    } catch (err) {
+      showError(err.response?.data?.message || err.message || 'Failed to refresh notifications.')
     } finally {
       setRefreshing(false)
     }

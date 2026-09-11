@@ -605,6 +605,46 @@ describe("bed management API", { timeout: 120_000 }, () => {
     );
   });
 
+  it("searches rooms by bed number and assigned patient name", async () => {
+    const uniqueBed = `BX-${Math.random().toString(36).slice(2, 7)}`;
+    const patientName = `SearchPatient ${Math.random().toString(36).slice(2, 8)}`;
+    const room = await request(app).post("/api/v1/rooms/").set(adminAuth()).send({
+      room_number: `SearchRm-${Math.random().toString(36).slice(2, 8)}`,
+      room_type: "GENERAL",
+      floor: "2",
+      capacity: 2,
+    });
+    assert.equal(room.status, 201);
+    const roomId = trackRoom(room.body.data.room.id);
+    const bed = await request(app).post("/api/v1/beds/").set(adminAuth()).send({
+      room_id: roomId,
+      bed_number: uniqueBed,
+    });
+    assert.equal(bed.status, 201);
+    const bedId = trackBed(bed.body.data.bed.id);
+
+    const byBed = await request(app)
+      .get("/api/v1/rooms/")
+      .query({ search: uniqueBed, include_beds: "true" })
+      .set(deskAuth());
+    assert.equal(byBed.status, 200);
+    assert.ok(byBed.body.data.results.some((row: { id: string }) => row.id === roomId));
+
+    const patientId = await createInpatient(patientName);
+    const assigned = await request(app)
+      .post(`/api/v1/beds/${bedId}/assign/`)
+      .set(adminAuth())
+      .send({ patient_id: patientId });
+    assert.equal(assigned.status, 200);
+
+    const byName = await request(app)
+      .get("/api/v1/rooms/")
+      .query({ search: patientName, include_beds: "true" })
+      .set(deskAuth());
+    assert.equal(byName.status, 200);
+    assert.ok(byName.body.data.results.some((row: { id: string }) => row.id === roomId));
+  });
+
   it("404s unknown room and bed ids", async () => {
     const room = await request(app)
       .get("/api/v1/rooms/aaaaaaaaaaaaaaaaaaaaaaaa/")

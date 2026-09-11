@@ -13,7 +13,6 @@ import {
 } from "../http/responses";
 import {
   collectFieldErrors,
-  icontainsRegex,
   isMongoObjectId,
   readBody,
   readOptionalNullableFloat,
@@ -41,6 +40,7 @@ import {
 } from "../notifications/notifyStaff";
 import { applyCareTypeDecision } from "../patients/admission";
 import { buildDoctorListFilter, doctorListSort } from "../patients/doctorFilters";
+import { buildPatientSearchOrClauses } from "../patients/search";
 import { serializePatient, serializePatientWithBed, serializePatientsWithBeds } from "../patients/serializePatient";
 import { getPatientStats } from "../patients/stats";
 import { findVisitByPublicId } from "../patients/visits";
@@ -160,12 +160,12 @@ const listCompletedPatients: RequestHandler = async (
   const search = readQueryString(req.query.search);
   const filter: Record<string, unknown> = { status: PatientStatus.COMPLETED };
   if (search) {
-    const pattern = icontainsRegex(search);
-    filter["$or"] = [
-      { patient_name: pattern },
-      { mobile: pattern },
-      { token_number: pattern },
-    ];
+    const searchOr = buildPatientSearchOrClauses(search);
+    if (searchOr.length === 1 && searchOr[0]) {
+      Object.assign(filter, searchOr[0]);
+    } else if (searchOr.length > 1) {
+      filter["$or"] = searchOr;
+    }
   }
 
   const total = await Patient.countDocuments(filter).exec();

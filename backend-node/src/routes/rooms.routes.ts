@@ -14,6 +14,7 @@ import {
   isDuplicateKeyError,
   roomHasActiveBeds,
 } from "../beds/operations";
+import { buildRoomListSearchFilter, roomIdsMatchingBedOrPatientSearch } from "../beds/roomSearch";
 import { serializeBed, serializeRoom } from "../beds/serialize";
 import { ROOM_TYPES, type RoomType } from "../constants";
 import { hasFieldErrors, type FieldErrors } from "../http/errors";
@@ -136,7 +137,8 @@ const listRooms: RequestHandler = async (req: Request, res: Response): Promise<v
 
   const filter: Record<string, unknown> = {};
   if (search) {
-    filter.$or = [{ room_number: icontainsRegex(search) }, { notes: icontainsRegex(search) }];
+    const matchedRoomIds = await roomIdsMatchingBedOrPatientSearch(search);
+    Object.assign(filter, buildRoomListSearchFilter(search, matchedRoomIds));
   }
   if (roomType && (ROOM_TYPES as readonly string[]).includes(roomType)) {
     filter.room_type = roomType;

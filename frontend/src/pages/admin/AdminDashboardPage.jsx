@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { LuBedDouble, LuPercent, LuUser } from 'react-icons/lu'
 import { bedService } from '@/api/beds'
 import { doctorConsultationService } from '@/api/doctor'
 import { BedStatCard } from '@/components/beds/BedStatCard'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { RefreshButton } from '@/components/ui'
+import { useToast } from '@/context/ToastContext'
 import { useAuth } from '@/hooks/useAuth'
 import { useNotifications } from '@/hooks/useNotifications'
 import { CONSULTATION_TABS, ROUTES } from '@/utils/constants'
-import { LuBedDouble, LuPercent, LuUser } from 'react-icons/lu'
+import { getApiErrorMessage } from '@/utils/errors'
 
 function MdOutlineKeyboardArrowRight({ className }) {
   return (
@@ -109,6 +111,7 @@ const statConfig = [
 export function AdminDashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { showError } = useToast()
   const { inboxRevision } = useNotifications()
   const [stats, setStats] = useState({
     waiting: 0,
@@ -127,13 +130,25 @@ export function AdminDashboardPage() {
     if (!silent) setLoading(true)
     try {
       const { data: res } = await doctorConsultationService.getStats()
-      setStats(res.data)
-    } catch {
-      // Keep existing counts on silent refresh failure.
+      setStats(
+        res.data ?? {
+          waiting: 0,
+          in_consultation: 0,
+          completed: 0,
+          completed_today: 0,
+          today: 0,
+        },
+      )
+      return true
+    } catch (err) {
+      if (!silent) {
+        showError(getApiErrorMessage(err, 'Failed to load dashboard stats.'))
+      }
+      return false
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [])
+  }, [showError])
 
   const fetchBedOverview = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setBedsLoading(true)
@@ -161,30 +176,41 @@ export function AdminDashboardPage() {
         currentInpatients,
         occupancyPercent,
       })
-    } catch {
-      // Keep existing bed overview on silent refresh failure.
+      return true
+    } catch (err) {
+      if (!silent) {
+        showError(getApiErrorMessage(err, 'Failed to load bed overview.'))
+      }
+      return false
     } finally {
       if (!silent) setBedsLoading(false)
     }
-  }, [])
+  }, [showError])
 
   useEffect(() => {
     void fetchStats()
     void fetchBedOverview()
   }, [fetchStats, fetchBedOverview])
 
-  // Assign/release bed events arrive over the existing Socket.IO notification channel.
+  // Bed/admission/status events arrive over the existing Socket.IO notification channel.
   useEffect(() => {
     if (seenInboxRevisionRef.current === inboxRevision) return
     seenInboxRevisionRef.current = inboxRevision
+    void fetchStats({ silent: true })
     void fetchBedOverview({ silent: true })
-  }, [inboxRevision, fetchBedOverview])
+  }, [inboxRevision, fetchStats, fetchBedOverview])
 
   const handleRefresh = async () => {
     if (refreshing) return
     setRefreshing(true)
     try {
-      await Promise.all([fetchStats({ silent: true }), fetchBedOverview({ silent: true })])
+      const [statsOk, bedsOk] = await Promise.all([
+        fetchStats({ silent: true }),
+        fetchBedOverview({ silent: true }),
+      ])
+      if (!statsOk || !bedsOk) {
+        showError('Failed to refresh dashboard.')
+      }
     } finally {
       setRefreshing(false)
     }

@@ -1,12 +1,21 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { patientService } from '@/api/patients'
 import { StatCard } from '@/components/dashboard/StatCard'
 import { PatientQueueQRCard } from '@/components/queue/PatientQueueQRCard'
 import { ReceptionDeskCard } from '@/components/queue/ReceptionDeskCard'
 import { RefreshButton } from '@/components/ui'
+import { useToast } from '@/context/ToastContext'
 import { useAuth } from '@/hooks/useAuth'
+import { useNotifications } from '@/hooks/useNotifications'
 import { ROUTES } from '@/utils/constants'
+import { getApiErrorMessage } from '@/utils/errors'
+
+const EMPTY_STATS = {
+  today: 0,
+  waiting: 0,
+  completed_today: 0,
+}
 
 const statConfig = [
   {
@@ -37,35 +46,47 @@ const statConfig = [
 
 export function ReceptionistDashboardPage() {
   const { user } = useAuth()
-  const [stats, setStats] = useState({
-    today: 0,
-    waiting: 0,
-    completed_today: 0,
-  })
+  const { showError } = useToast()
+  const { inboxRevision } = useNotifications()
+  const [stats, setStats] = useState(EMPTY_STATS)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const seenInboxRevisionRef = useRef(inboxRevision)
 
   const fetchStats = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true)
     try {
       const { data: res } = await patientService.getStats()
-      setStats(res.data)
-    } catch {
-      // Keep existing counts on refresh failure.
+      setStats(res.data ?? EMPTY_STATS)
+      return true
+    } catch (err) {
+      if (!silent) {
+        showError(getApiErrorMessage(err, 'Failed to load dashboard stats.'))
+      }
+      return false
     } finally {
       if (!silent) setLoading(false)
     }
-  }, [])
+  }, [showError])
 
   useEffect(() => {
-    fetchStats()
+    void fetchStats()
   }, [fetchStats])
+
+  useEffect(() => {
+    if (seenInboxRevisionRef.current === inboxRevision) return
+    seenInboxRevisionRef.current = inboxRevision
+    void fetchStats({ silent: true })
+  }, [inboxRevision, fetchStats])
 
   const handleRefresh = async () => {
     if (refreshing) return
     setRefreshing(true)
     try {
-      await fetchStats({ silent: true })
+      const ok = await fetchStats({ silent: true })
+      if (!ok) {
+        showError('Failed to refresh dashboard.')
+      }
     } finally {
       setRefreshing(false)
     }

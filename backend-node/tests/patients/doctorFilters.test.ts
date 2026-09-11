@@ -67,13 +67,24 @@ describe("buildDoctorListFilter", () => {
     });
   });
 
-  it("searches name, mobile, and stored token_number with waiting default", () => {
+  it("searches token suffixes for P0001 with waiting default", () => {
     const filter = buildDoctorListFilter({ search: "P0001" }, now) as {
       $and: Record<string, unknown>[];
     };
     assert.ok(filter.$and);
     assert.ok(filter.$and[0]?.["$or"]);
+    const or = filter.$and[0]?.["$or"] as Record<string, unknown>[];
+    assert.ok(or.every((clause) => "token_number" in clause));
     assert.deepEqual(filter.$and[1], { status: PatientStatus.WAITING });
+  });
+
+  it("does not match short token search against mobile", () => {
+    const filter = buildDoctorListFilter({ search: "03" }, now) as {
+      $and: Record<string, unknown>[];
+    };
+    const or = filter.$and[0]?.["$or"] as Record<string, unknown>[];
+    assert.ok(or.every((clause) => "token_number" in clause));
+    assert.ok(!or.some((clause) => "mobile" in clause));
   });
 
   it("ignores unknown status and still defaults to WAITING", () => {

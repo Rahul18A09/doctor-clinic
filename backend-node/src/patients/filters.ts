@@ -4,7 +4,8 @@ import {
   getTodayUtcRange,
   parseUtcDateParam,
 } from "../http/utc";
-import { icontainsRegex, readQueryString } from "../http/validation";
+import { readQueryString } from "../http/validation";
+import { buildPatientSearchOrClauses } from "./search";
 
 export function buildPatientListFilter(
   query: Record<string, unknown>,
@@ -19,15 +20,12 @@ export function buildPatientListFilter(
   const admissionStatus = readQueryString(query["admission_status"]);
 
   if (search) {
-    const pattern = icontainsRegex(search);
-    clauses.push({
-      $or: [
-        { patient_name: pattern },
-        { mobile: pattern },
-        { token_number: pattern },
-        { patient_id: pattern },
-      ],
-    });
+    const searchOr = buildPatientSearchOrClauses(search, { includePatientId: true });
+    if (searchOr.length === 1 && searchOr[0]) {
+      clauses.push(searchOr[0]);
+    } else if (searchOr.length > 1) {
+      clauses.push({ $or: searchOr });
+    }
   }
 
   if (statusFilter && (PATIENT_STATUSES as readonly string[]).includes(statusFilter)) {

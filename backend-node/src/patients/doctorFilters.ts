@@ -1,6 +1,7 @@
 import { PATIENT_STATUSES, PatientStatus } from "../constants";
 import { createdAtUtcRangeFilter, getTodayUtcRange, isTruthyQueryFlag } from "../http/utc";
-import { icontainsRegex, readQueryString } from "../http/validation";
+import { readQueryString } from "../http/validation";
+import { buildPatientSearchOrClauses } from "./search";
 
 export type DoctorListSort = {
   [field: string]: 1 | -1;
@@ -22,10 +23,12 @@ export function buildDoctorListFilter(
   const todayFlag = isTruthyQueryFlag(query["today"]);
 
   if (search) {
-    const pattern = icontainsRegex(search);
-    clauses.push({
-      $or: [{ patient_name: pattern }, { mobile: pattern }, { token_number: pattern }],
-    });
+    const searchOr = buildPatientSearchOrClauses(search);
+    if (searchOr.length === 1 && searchOr[0]) {
+      clauses.push(searchOr[0]);
+    } else if (searchOr.length > 1) {
+      clauses.push({ $or: searchOr });
+    }
   }
 
   if (statusFilter === "active") {
