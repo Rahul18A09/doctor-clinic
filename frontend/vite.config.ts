@@ -151,6 +151,22 @@ export default defineConfig(({ command }) => {
       __VITE_HTTPS__: JSON.stringify(!isBuild),
     },
 
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined
+            if (id.includes('socket.io')) return 'vendor-socket'
+            if (id.includes('react-router')) return 'vendor-router'
+            if (id.includes('react-dom') || id.includes('/react/')) return 'vendor-react'
+            if (id.includes('react-icons')) return 'vendor-icons'
+            if (id.includes('axios')) return 'vendor-axios'
+            return undefined
+          },
+        },
+      },
+    },
+
     server: {
       ...lanListen,
       port: 5173,

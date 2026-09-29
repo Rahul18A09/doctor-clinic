@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import { authService } from '@/api/auth'
@@ -14,6 +15,7 @@ import {
   TOKEN_KEY,
   USER_KEY,
 } from '@/utils/constants'
+import { invalidateSessionCache } from '@/utils/sessionCache'
 
 const AuthContext = createContext(null)
 
@@ -26,10 +28,16 @@ function readStoredUser() {
   }
 }
 
+function hasCachedSession() {
+  return Boolean(getToken(TOKEN_KEY) && readStoredUser())
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(readStoredUser)
   const [accessToken, setAccessToken] = useState(() => getToken(TOKEN_KEY))
-  const [loading, setLoading] = useState(true)
+  // Only block the shell when we have a token but no cached user to paint with.
+  const [loading, setLoading] = useState(() => Boolean(getToken(TOKEN_KEY) && !readStoredUser()))
+  const refreshInFlightRef = useRef(null)
 
   const isAuthenticated = Boolean(accessToken && user)
 
@@ -59,6 +67,8 @@ export function AuthProvider({ children }) {
       // Ignore logout API errors — clear client session regardless
     } finally {
       clearTokens()
+      invalidateSessionCache()
+      refreshInFlightRef.current = null
       setAccessToken(null)
       setUser(null)
     }
@@ -66,10 +76,9 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(
     async (credentials, rememberMe = true) => {
-      console.log('[AuthContext.login] called with:', credentials)
       const { data: response } = await authService.login(credentials)
-      console.log('[AuthContext.login] API response:', response)
       const { access, refresh, user: userData } = response.data
+      invalidateSessionCache()
       persistSession({ access, refresh }, userData, rememberMe)
       return userData
     },
@@ -77,41 +86,73 @@ export function AuthProvider({ children }) {
   )
 
   const refreshUser = useCallback(async () => {
-    const { data: response } = await authService.getCurrentUser()
-    const userData = response.data.user
-    getStorage().setItem(USER_KEY, JSON.stringify(userData))
-    setUser(userData)
-    return userData
+    if (refreshInFlightRef.current) {
+      return refreshInFlightRef.current
+    }
+
+    const request = (async () => {
+      const { data: response } = await authService.getCurrentUser()
+      const userData = response.data.user
+      getStorage().setItem(USER_KEY, JSON.stringify(userData))
+      setUser(userData)
+      return userData
+    })()
+
+    refreshInFlightRef.current = request
+    try {
+      return await request
+    } finally {
+      if (refreshInFlightRef.current === request) {
+        refreshInFlightRef.current = null
+      }
+    }
   }, [])
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
+      invalidateSessionCache()
       setAccessToken(null)
       setUser(null)
     })
   }, [])
 
   useEffect(() => {
+    let cancelled = false
+
     async function bootstrapAuth() {
       const token = getToken(TOKEN_KEY)
       if (!token) {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
         return
+      }
+
+      // Cached session: render immediately, validate /me in the background.
+      if (hasCachedSession()) {
+        if (!cancelled) {
+          setAccessToken(token)
+          setLoading(false)
+        }
       }
 
       try {
         await refreshUser()
-        setAccessToken(token)
+        if (!cancelled) setAccessToken(token)
       } catch {
-        clearTokens()
-        setAccessToken(null)
-        setUser(null)
+        if (!cancelled) {
+          clearTokens()
+          invalidateSessionCache()
+          setAccessToken(null)
+          setUser(null)
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
-    bootstrapAuth()
+    void bootstrapAuth()
+    return () => {
+      cancelled = true
+    }
   }, [refreshUser])
 
   const value = useMemo(

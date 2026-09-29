@@ -45,9 +45,11 @@ export function NotificationsPage() {
   const [loadError, setLoadError] = useState('')
   const [actionLoading, setActionLoading] = useState(null)
   const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, title: '' })
+  const requestGenRef = useRef(0)
 
   const fetchNotifications = useCallback(
     async ({ silent = false } = {}) => {
+      const generation = ++requestGenRef.current
       if (!silent) setLoading(true)
       try {
         const params = { page, page_size: PAGE_SIZE }
@@ -55,6 +57,7 @@ export function NotificationsPage() {
         if (typeQuery) params.type = typeQuery
         if (readFilter) params.is_read = readFilter
         const { data: res } = await notificationService.list(params)
+        if (generation !== requestGenRef.current) return false
         const total = res.data.pagination.total
         setItems(res.data.results)
         setPagination(res.data.pagination)
@@ -70,10 +73,12 @@ export function NotificationsPage() {
         } else {
           const unreadParams = { page: 1, page_size: 1, is_read: 'false', type: typeQuery }
           const { data: unreadRes } = await notificationService.list(unreadParams)
+          if (generation !== requestGenRef.current) return false
           setVisibleUnread(Math.min(unreadRes.data.pagination.total, total))
         }
         return true
       } catch (err) {
+        if (generation !== requestGenRef.current) return false
         if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return true
         const message = err.response?.data?.message || err.message || 'Unable to load notifications.'
         if (!silent) {
@@ -82,7 +87,7 @@ export function NotificationsPage() {
         }
         return false
       } finally {
-        if (!silent) setLoading(false)
+        if (generation === requestGenRef.current && !silent) setLoading(false)
       }
     },
     [page, typeFilter, readFilter, showError],

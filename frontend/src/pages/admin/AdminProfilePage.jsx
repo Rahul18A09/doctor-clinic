@@ -39,27 +39,28 @@ function ProfileSkeleton() {
 export function AdminProfilePage() {
   const { user, refreshUser } = useAuth()
   const { showSuccess, showError } = useToast()
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!user)
   const [loadError, setLoadError] = useState('')
   const [editOpen, setEditOpen] = useState(false)
   const [passwordOpen, setPasswordOpen] = useState(false)
 
-  const loadProfile = useCallback(async () => {
-    setLoading(true)
+  const loadProfile = useCallback(async ({ silent = false } = {}) => {
+    if (!silent && !user) setLoading(true)
     setLoadError('')
     try {
       await refreshUser()
     } catch (err) {
       setLoadError(apiMessage(err, 'Failed to load profile.'))
-      showError(apiMessage(err, 'Failed to load profile.'))
+      if (!silent) showError(apiMessage(err, 'Failed to load profile.'))
     } finally {
       setLoading(false)
     }
-  }, [refreshUser, showError])
+  }, [refreshUser, showError, user])
 
   useEffect(() => {
-    loadProfile()
-  }, [loadProfile])
+    void loadProfile({ silent: Boolean(user) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   if (loading && !user) {
     return <ProfileSkeleton />
@@ -70,7 +71,7 @@ export function AdminProfilePage() {
       <div className="rounded-2xl border border-slate-200 bg-card p-6 text-center shadow-sm sm:p-8">
         <h2 className="text-lg font-semibold text-foreground">Unable to load profile</h2>
         <p className="mt-2 text-sm text-muted">{loadError}</p>
-        <Button className="mt-5" onClick={loadProfile}>
+        <Button className="mt-5" onClick={() => void loadProfile()}>
           Try again
         </Button>
       </div>

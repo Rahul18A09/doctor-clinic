@@ -102,28 +102,50 @@ export function PatientDetailPage({ basePath, canEdit = false, isAdmin = false }
     setLoading(true)
     setPatient(null)
     setAssignment(null)
+    setAssignmentLoading(true)
 
     async function load() {
+      const patientPromise = patientService.get(id, { signal: controller.signal })
+      const assignmentPromise = loadActiveAssignment(id, controller.signal)
+
       try {
-        const { data: res } = await patientService.get(id, { signal: controller.signal })
+        const { data: res } = await patientPromise
         if (cancelled) return
         setPatient(res.data.patient)
-        await refreshAssignment(controller.signal)
+        setLoading(false)
       } catch (err) {
         if (cancelled || isRequestCanceled(err)) return
         const missing = err.response?.status === 404
-        showError(missing ? 'This visit is no longer available.' : err.response?.data?.message || err.message)
+        showError(
+          missing
+            ? 'This visit is no longer available.'
+            : err.response?.data?.message || err.message,
+        )
         navigate(listPath, { replace: true })
+        if (!cancelled) {
+          setLoading(false)
+          setAssignmentLoading(false)
+        }
+        return
+      }
+
+      try {
+        const next = await assignmentPromise
+        if (cancelled || controller.signal.aborted) return
+        setAssignment(next)
+      } catch (err) {
+        if (cancelled || isRequestCanceled(err)) return
+        setAssignment(null)
       } finally {
-        if (!cancelled) setLoading(false)
+        if (!cancelled && !controller.signal.aborted) setAssignmentLoading(false)
       }
     }
-    load()
+    void load()
     return () => {
       cancelled = true
       controller.abort()
     }
-  }, [id, listPath, navigate, refreshAssignment, showError])
+  }, [id, listPath, navigate, showError])
 
   const handleAssign = async (bedId) => {
     if (!id) return

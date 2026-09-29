@@ -23,6 +23,11 @@ import {
   BED_STATUS_FILTER_OPTIONS,
 } from '@/utils/constants'
 import {
+  SESSION_CACHE_KEYS,
+  getSessionCache,
+  setSessionCache,
+} from '@/utils/sessionCache'
+import {
   LuBedDouble,
   LuCalendar,
   LuPlus,
@@ -167,9 +172,11 @@ export function BedManagementPage({
     confirmLabel: 'Confirm',
     payload: null,
   })
+  const requestGenRef = useRef(0)
 
   const fetchData = useCallback(
     async ({ silent = false, search: searchOverride, page: pageOverride } = {}) => {
+      const generation = ++requestGenRef.current
       if (!silent) setLoading(true)
       const appliedSearch = searchOverride !== undefined ? searchOverride : search
       const appliedPage = pageOverride !== undefined ? pageOverride : page
@@ -196,6 +203,8 @@ export function BedManagementPage({
             : roomService.list({ ...roomParams, page: appliedPage, page_size: 10 }),
         ])
 
+        if (generation !== requestGenRef.current) return false
+
         const listed = roomsRes.data?.data?.results || []
 
         if (bedStatus) {
@@ -220,15 +229,30 @@ export function BedManagementPage({
         }
 
         const summaryPayload = summaryRes.data?.data || {}
-        setSummary(summaryPayload.summary || EMPTY_SUMMARY)
+        const nextSummary = summaryPayload.summary || EMPTY_SUMMARY
+        setSummary(nextSummary)
         setTotalRooms(summaryPayload.total_rooms ?? 0)
         setFloors(Array.isArray(summaryPayload.floors) ? summaryPayload.floors : [])
         setRooms(filtered)
         setPatientsById(patientsByIdFromBeds(filtered))
         setPagination(paginationMeta)
         setLoadError('')
+        const cached = getSessionCache(SESSION_CACHE_KEYS.BED_SUMMARY) || {}
+        const total = Number(nextSummary.total) || 0
+        const occupied = Number(nextSummary.occupied) || 0
+        setSessionCache(SESSION_CACHE_KEYS.BED_SUMMARY, {
+          ...cached,
+          total,
+          occupied,
+          available: Number(nextSummary.available) || 0,
+          currentInpatients: cached.currentInpatients ?? occupied,
+          occupancyPercent:
+            cached.occupancyPercent ??
+            (total > 0 ? Math.round((occupied / total) * 100) : 0),
+        })
         return true
       } catch (err) {
+        if (generation !== requestGenRef.current) return false
         const message = getBedsErrorMessage(err, 'Could not load rooms and beds.')
         if (!silent) {
           setLoadError(message)
@@ -236,11 +260,12 @@ export function BedManagementPage({
         }
         return false
       } finally {
-        if (!silent) setLoading(false)
+        if (generation === requestGenRef.current && !silent) setLoading(false)
       }
     },
     [page, search, roomType, floor, bedStatus, showError],
   )
+
 
   useEffect(() => {
     if (skipAutoFetchRef.current) {

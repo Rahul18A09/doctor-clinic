@@ -11,6 +11,12 @@ import { useAuth } from '@/hooks/useAuth'
 import { useNotifications } from '@/hooks/useNotifications'
 import { CONSULTATION_TABS, ROUTES } from '@/utils/constants'
 import { getApiErrorMessage } from '@/utils/errors'
+import {
+  SESSION_CACHE_KEYS,
+  getSessionCache,
+  invalidateSessionCache,
+  setSessionCache,
+} from '@/utils/sessionCache'
 
 function MdOutlineKeyboardArrowRight({ className }) {
   return (
@@ -112,48 +118,60 @@ export function AdminDashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { showError } = useToast()
-  const { inboxRevision } = useNotifications()
-  const [stats, setStats] = useState({
-    waiting: 0,
-    in_consultation: 0,
-    completed: 0,
-    completed_today: 0,
-    today: 0,
-  })
-  const [bedOverview, setBedOverview] = useState(EMPTY_BED_OVERVIEW)
-  const [loading, setLoading] = useState(true)
-  const [bedsLoading, setBedsLoading] = useState(true)
+  const { activityRevision } = useNotifications()
+  const cachedStats = getSessionCache(SESSION_CACHE_KEYS.DOCTOR_STATS)
+  const cachedBeds = getSessionCache(SESSION_CACHE_KEYS.BED_SUMMARY)
+  const [stats, setStats] = useState(
+    cachedStats ?? {
+      waiting: 0,
+      in_consultation: 0,
+      completed: 0,
+      completed_today: 0,
+      today: 0,
+    },
+  )
+  const [bedOverview, setBedOverview] = useState(cachedBeds ?? EMPTY_BED_OVERVIEW)
+  const [loading, setLoading] = useState(!cachedStats)
+  const [bedsLoading, setBedsLoading] = useState(!cachedBeds)
   const [refreshing, setRefreshing] = useState(false)
-  const seenInboxRevisionRef = useRef(inboxRevision)
+  const seenActivityRevisionRef = useRef(activityRevision)
+  const statsGenRef = useRef(0)
+  const bedsGenRef = useRef(0)
 
   const fetchStats = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setLoading(true)
+    const gen = ++statsGenRef.current
+    if (!silent && !getSessionCache(SESSION_CACHE_KEYS.DOCTOR_STATS)) setLoading(true)
     try {
       const { data: res } = await doctorConsultationService.getStats()
-      setStats(
+      if (gen !== statsGenRef.current) return false
+      const next =
         res.data ?? {
           waiting: 0,
           in_consultation: 0,
           completed: 0,
           completed_today: 0,
           today: 0,
-        },
-      )
+        }
+      setStats(next)
+      setSessionCache(SESSION_CACHE_KEYS.DOCTOR_STATS, next)
       return true
     } catch (err) {
+      if (gen !== statsGenRef.current) return false
       if (!silent) {
         showError(getApiErrorMessage(err, 'Failed to load dashboard stats.'))
       }
       return false
     } finally {
-      if (!silent) setLoading(false)
+      if (gen === statsGenRef.current && !silent) setLoading(false)
     }
   }, [showError])
 
   const fetchBedOverview = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setBedsLoading(true)
+    const gen = ++bedsGenRef.current
+    if (!silent && !getSessionCache(SESSION_CACHE_KEYS.BED_SUMMARY)) setBedsLoading(true)
     try {
       const { data: res } = await bedService.summary()
+      if (gen !== bedsGenRef.current) return false
       const payload = res?.data || {}
       const summary = payload.summary || {}
       const total = Number(summary.total) || 0
@@ -169,40 +187,48 @@ export function AdminDashboardPage() {
           : total > 0
             ? Math.round((occupied / total) * 100)
             : 0
-      setBedOverview({
+      const next = {
         total,
         occupied,
         available,
         currentInpatients,
         occupancyPercent,
-      })
+      }
+      setBedOverview(next)
+      setSessionCache(SESSION_CACHE_KEYS.BED_SUMMARY, next)
       return true
     } catch (err) {
+      if (gen !== bedsGenRef.current) return false
       if (!silent) {
         showError(getApiErrorMessage(err, 'Failed to load bed overview.'))
       }
       return false
     } finally {
-      if (!silent) setBedsLoading(false)
+      if (gen === bedsGenRef.current && !silent) setBedsLoading(false)
     }
   }, [showError])
 
   useEffect(() => {
-    void fetchStats()
-    void fetchBedOverview()
-  }, [fetchStats, fetchBedOverview])
+    void fetchStats({ silent: Boolean(cachedStats) })
+    void fetchBedOverview({ silent: Boolean(cachedBeds) })
+    // Mount-only initial load; refresh handlers and activityRevision cover updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  // Bed/admission/status events arrive over the existing Socket.IO notification channel.
   useEffect(() => {
-    if (seenInboxRevisionRef.current === inboxRevision) return
-    seenInboxRevisionRef.current = inboxRevision
+    if (seenActivityRevisionRef.current === activityRevision) return
+    seenActivityRevisionRef.current = activityRevision
+    invalidateSessionCache(SESSION_CACHE_KEYS.DOCTOR_STATS)
+    invalidateSessionCache(SESSION_CACHE_KEYS.BED_SUMMARY)
     void fetchStats({ silent: true })
     void fetchBedOverview({ silent: true })
-  }, [inboxRevision, fetchStats, fetchBedOverview])
+  }, [activityRevision, fetchStats, fetchBedOverview])
 
   const handleRefresh = async () => {
     if (refreshing) return
     setRefreshing(true)
+    invalidateSessionCache(SESSION_CACHE_KEYS.DOCTOR_STATS)
+    invalidateSessionCache(SESSION_CACHE_KEYS.BED_SUMMARY)
     try {
       const [statsOk, bedsOk] = await Promise.all([
         fetchStats({ silent: true }),

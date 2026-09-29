@@ -10,6 +10,12 @@ import { useAuth } from '@/hooks/useAuth'
 import { useNotifications } from '@/hooks/useNotifications'
 import { ROUTES } from '@/utils/constants'
 import { getApiErrorMessage } from '@/utils/errors'
+import {
+  SESSION_CACHE_KEYS,
+  getSessionCache,
+  invalidateSessionCache,
+  setSessionCache,
+} from '@/utils/sessionCache'
 
 const EMPTY_STATS = {
   today: 0,
@@ -47,41 +53,51 @@ const statConfig = [
 export function ReceptionistDashboardPage() {
   const { user } = useAuth()
   const { showError } = useToast()
-  const { inboxRevision } = useNotifications()
-  const [stats, setStats] = useState(EMPTY_STATS)
-  const [loading, setLoading] = useState(true)
+  const { activityRevision } = useNotifications()
+  const cachedStats = getSessionCache(SESSION_CACHE_KEYS.PATIENT_STATS)
+  const [stats, setStats] = useState(cachedStats ?? EMPTY_STATS)
+  const [loading, setLoading] = useState(!cachedStats)
   const [refreshing, setRefreshing] = useState(false)
-  const seenInboxRevisionRef = useRef(inboxRevision)
+  const seenActivityRevisionRef = useRef(activityRevision)
+  const statsGenRef = useRef(0)
 
   const fetchStats = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setLoading(true)
+    const gen = ++statsGenRef.current
+    if (!silent && !getSessionCache(SESSION_CACHE_KEYS.PATIENT_STATS)) setLoading(true)
     try {
       const { data: res } = await patientService.getStats()
-      setStats(res.data ?? EMPTY_STATS)
+      if (gen !== statsGenRef.current) return false
+      const next = res.data ?? EMPTY_STATS
+      setStats(next)
+      setSessionCache(SESSION_CACHE_KEYS.PATIENT_STATS, next)
       return true
     } catch (err) {
+      if (gen !== statsGenRef.current) return false
       if (!silent) {
         showError(getApiErrorMessage(err, 'Failed to load dashboard stats.'))
       }
       return false
     } finally {
-      if (!silent) setLoading(false)
+      if (gen === statsGenRef.current && !silent) setLoading(false)
     }
   }, [showError])
 
   useEffect(() => {
-    void fetchStats()
-  }, [fetchStats])
+    void fetchStats({ silent: Boolean(cachedStats) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
-    if (seenInboxRevisionRef.current === inboxRevision) return
-    seenInboxRevisionRef.current = inboxRevision
+    if (seenActivityRevisionRef.current === activityRevision) return
+    seenActivityRevisionRef.current = activityRevision
+    invalidateSessionCache(SESSION_CACHE_KEYS.PATIENT_STATS)
     void fetchStats({ silent: true })
-  }, [inboxRevision, fetchStats])
+  }, [activityRevision, fetchStats])
 
   const handleRefresh = async () => {
     if (refreshing) return
     setRefreshing(true)
+    invalidateSessionCache(SESSION_CACHE_KEYS.PATIENT_STATS)
     try {
       const ok = await fetchStats({ silent: true })
       if (!ok) {

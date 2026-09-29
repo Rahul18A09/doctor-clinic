@@ -20,6 +20,12 @@ import { useToast } from '@/context/ToastContext'
 import { useNotifications } from '@/hooks/useNotifications'
 import { ROUTES } from '@/utils/constants'
 import { getApiErrorMessage } from '@/utils/errors'
+import {
+  SESSION_CACHE_KEYS,
+  getSessionCache,
+  invalidateSessionCache,
+  setSessionCache,
+} from '@/utils/sessionCache'
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -178,7 +184,7 @@ const emptyReport = {
 
 export function AdminReportsPage() {
   const { showError, showSuccess } = useToast()
-  const { inboxRevision } = useNotifications()
+  const { activityRevision } = useNotifications()
   const initialRange = rangeForPreset('last_30_days')
   const [preset, setPreset] = useState('last_30_days')
   const [startDate, setStartDate] = useState(initialRange.start)
@@ -190,9 +196,19 @@ export function AdminReportsPage() {
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [report, setReport] = useState(emptyReport)
-  const [bedSummary, setBedSummary] = useState({ total: 0, occupied: 0, available: 0 })
-  const [bedsLoading, setBedsLoading] = useState(true)
-  const seenInboxRevisionRef = useRef(inboxRevision)
+  const cachedBeds = getSessionCache(SESSION_CACHE_KEYS.BED_SUMMARY)
+  const [bedSummary, setBedSummary] = useState(
+    cachedBeds
+      ? {
+          total: cachedBeds.total ?? 0,
+          occupied: cachedBeds.occupied ?? 0,
+          available: cachedBeds.available ?? 0,
+        }
+      : { total: 0, occupied: 0, available: 0 },
+  )
+  const [bedsLoading, setBedsLoading] = useState(!cachedBeds)
+  const seenActivityRevisionRef = useRef(activityRevision)
+  const reportGenRef = useRef(0)
 
   const table = tab === 'consultations' ? 'consultations' : 'visits'
 
@@ -209,31 +225,44 @@ export function AdminReportsPage() {
 
   const loadReport = useCallback(
     async ({ silent = false } = {}) => {
+      const generation = ++reportGenRef.current
       if (!silent) setLoading(true)
       setError('')
       try {
         const { data: res } = await reportsService.get(queryParams)
+        if (generation !== reportGenRef.current) return
         setReport(res.data)
       } catch (err) {
+        if (generation !== reportGenRef.current) return
         const message = getApiErrorMessage(err, 'Failed to load reports.')
         setError(message)
         if (!silent) showError(message)
       } finally {
-        if (!silent) setLoading(false)
+        if (generation === reportGenRef.current && !silent) setLoading(false)
       }
     },
     [queryParams, showError],
   )
 
   const loadBedSummary = useCallback(async ({ silent = false } = {}) => {
-    if (!silent) setBedsLoading(true)
+    if (!silent && !getSessionCache(SESSION_CACHE_KEYS.BED_SUMMARY)) setBedsLoading(true)
     try {
       const { data: res } = await bedService.summary()
       const summary = res?.data?.summary || {}
-      setBedSummary({
+      const next = {
         total: Number(summary.total) || 0,
         occupied: Number(summary.occupied) || 0,
         available: Number(summary.available) || 0,
+      }
+      setBedSummary(next)
+      const cached = getSessionCache(SESSION_CACHE_KEYS.BED_SUMMARY) || {}
+      setSessionCache(SESSION_CACHE_KEYS.BED_SUMMARY, {
+        ...cached,
+        ...next,
+        currentInpatients: cached.currentInpatients ?? next.occupied,
+        occupancyPercent:
+          cached.occupancyPercent ??
+          (next.total > 0 ? Math.round((next.occupied / next.total) * 100) : 0),
       })
     } catch {
       // Keep existing bed counts on refresh failure.
@@ -243,18 +272,20 @@ export function AdminReportsPage() {
   }, [])
 
   useEffect(() => {
-    loadReport()
+    void loadReport()
   }, [loadReport])
 
   useEffect(() => {
-    void loadBedSummary()
-  }, [loadBedSummary])
+    void loadBedSummary({ silent: Boolean(cachedBeds) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
-    if (seenInboxRevisionRef.current === inboxRevision) return
-    seenInboxRevisionRef.current = inboxRevision
+    if (seenActivityRevisionRef.current === activityRevision) return
+    seenActivityRevisionRef.current = activityRevision
+    invalidateSessionCache(SESSION_CACHE_KEYS.BED_SUMMARY)
     void loadBedSummary({ silent: true })
-  }, [inboxRevision, loadBedSummary])
+  }, [activityRevision, loadBedSummary])
 
   const handlePreset = (event) => {
     const next = event.target.value || 'last_30_days'

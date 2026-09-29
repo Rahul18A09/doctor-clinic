@@ -187,10 +187,13 @@ export function ConsultationQueuePage() {
   const [openMenuId, setOpenMenuId] = useState(null)
 
   const skipAutoFetchRef = useRef(false)
+  const requestGenRef = useRef(0)
+  const prevTabRef = useRef(activeTab)
 
-  const fetchStats = useCallback(async ({ silent = false } = {}) => {
+  const fetchStats = useCallback(async ({ silent = false, generation } = {}) => {
     try {
       const { data: res } = await doctorConsultationService.getStats()
+      if (generation != null && generation !== requestGenRef.current) return false
       setStats(
         res.data ?? {
           waiting: 0,
@@ -201,13 +204,19 @@ export function ConsultationQueuePage() {
       )
       return true
     } catch (err) {
+      if (generation != null && generation !== requestGenRef.current) return false
       if (!silent) showError(err.response?.data?.message || err.message)
       return false
     }
   }, [showError])
 
   const fetchPatients = useCallback(
-    async ({ silent = false, search: searchOverride, page: pageOverride } = {}) => {
+    async ({
+      silent = false,
+      search: searchOverride,
+      page: pageOverride,
+      generation,
+    } = {}) => {
       if (!silent) setLoading(true)
       const appliedSearch = searchOverride !== undefined ? searchOverride : search
       const appliedPage = pageOverride !== undefined ? pageOverride : page
@@ -224,11 +233,13 @@ export function ConsultationQueuePage() {
             : doctorConsultationService.list
 
         const { data: res } = await fetcher(params)
+        if (generation != null && generation !== requestGenRef.current) return false
         setPatients(res.data.results)
         setPagination(res.data.pagination)
         setLoadError('')
         return true
       } catch (err) {
+        if (generation != null && generation !== requestGenRef.current) return false
         const message = err.response?.data?.message || err.message
         if (!silent) {
           setLoadError(message)
@@ -236,30 +247,44 @@ export function ConsultationQueuePage() {
         }
         return false
       } finally {
-        if (!silent) setLoading(false)
+        if (generation == null || generation === requestGenRef.current) {
+          if (!silent) setLoading(false)
+        }
       }
     },
-    [activeTab, page, search, todayOnly, showError]
+    [activeTab, page, search, todayOnly, showError],
   )
 
   const refreshAll = useCallback(
-    async ({ silent = false } = {}) => {
+    async ({ silent = false, search: searchOverride, page: pageOverride } = {}) => {
+      const generation = ++requestGenRef.current
       const [statsOk, patientsOk] = await Promise.all([
-        fetchStats({ silent }),
-        fetchPatients({ silent }),
+        fetchStats({ silent, generation }),
+        fetchPatients({ silent, search: searchOverride, page: pageOverride, generation }),
       ])
       return statsOk && patientsOk
     },
-    [fetchStats, fetchPatients]
+    [fetchStats, fetchPatients],
   )
 
   useEffect(() => {
+    // Tab change: reset list controls once, then fetch with the reset values (single request).
+    if (prevTabRef.current !== activeTab) {
+      prevTabRef.current = activeTab
+      setSearchInput('')
+      if (page !== 1 || search !== '') {
+        setPage(1)
+        setSearch('')
+        return
+      }
+    }
+
     if (skipAutoFetchRef.current) {
       skipAutoFetchRef.current = false
       return
     }
     void refreshAll()
-  }, [refreshAll])
+  }, [activeTab, todayOnly, page, search, refreshAll])
 
   const handleRefresh = async () => {
     if (refreshing) return
@@ -275,23 +300,18 @@ export function ConsultationQueuePage() {
     }
     setRefreshing(true)
     try {
-      const [statsOk, patientsOk] = await Promise.all([
-        fetchStats({ silent: true }),
-        fetchPatients({ silent: true, search: nextSearch, page: nextPage }),
-      ])
-      if (!statsOk || !patientsOk) {
+      const ok = await refreshAll({
+        silent: true,
+        search: nextSearch,
+        page: nextPage,
+      })
+      if (!ok) {
         showError('Failed to refresh consultations.')
       }
     } finally {
       setRefreshing(false)
     }
   }
-
-  useEffect(() => {
-    setPage(1)
-    setSearch('')
-    setSearchInput('')
-  }, [activeTab])
 
   const setTab = (tab) => {
     setSearchParams({ tab })
@@ -302,7 +322,7 @@ export function ConsultationQueuePage() {
     setSearchParams(
       onlyToday
         ? { tab: CONSULTATION_TABS.WAITING }
-        : { tab: CONSULTATION_TABS.WAITING, today: 'false' }
+        : { tab: CONSULTATION_TABS.WAITING, today: 'false' },
     )
   }
 

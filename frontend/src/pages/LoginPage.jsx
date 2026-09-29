@@ -22,32 +22,19 @@ export function LoginPage() {
   })
 
   const onSubmit = async (formData) => {
-    console.log('Login clicked')
-    console.log('formData', formData)
-
     const credentials = {
       email: formData.email.toLowerCase().trim(),
       password: formData.password,
     }
-    console.log('credentials before API call', credentials)
 
     try {
       const user = await login(credentials, rememberMe)
-      console.log('[LoginPage] login success, user:', user)
       navigate(ROLE_DASHBOARD[user.role])
     } catch (err) {
-      console.error('[LoginPage] login error (original):', err)
-      console.error('[LoginPage] error message:', err?.message)
-      console.error('[LoginPage] error response:', err?.response)
       setError('root', {
         message: err?.response?.data?.message || err?.message || String(err),
       })
     }
-  }
-
-  const onInvalid = (validationErrors) => {
-    console.log('[LoginPage] handleSubmit validation failed — onSubmit was NOT called')
-    console.log('[LoginPage] validation errors:', validationErrors)
   }
 
   return (
@@ -85,7 +72,7 @@ export function LoginPage() {
 
           <form
             noValidate
-            onSubmit={handleSubmit(onSubmit, onInvalid)}
+            onSubmit={handleSubmit(onSubmit)}
             className="space-y-5 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-8"
           >
             <Input

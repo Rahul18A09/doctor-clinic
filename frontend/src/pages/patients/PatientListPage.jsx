@@ -37,6 +37,12 @@ export function PatientListPage({
   const [searchParams] = useSearchParams()
   const { showSuccess, showError } = useToast()
 
+  const initialUrlFilter = searchParams.get('filter')
+  const resolvedInitialFilter =
+    initialUrlFilter !== null && PATIENT_FILTERS.some((f) => f.value === initialUrlFilter)
+      ? initialUrlFilter
+      : defaultFilter
+
   const [patients, setPatients] = useState([])
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({
@@ -47,9 +53,11 @@ export function PatientListPage({
   })
   const [search, setSearch] = useState('')
   const [searchInput, setSearchInput] = useState('')
-  const [filter, setFilter] = useState(defaultFilter)
+  const [filter, setFilter] = useState(resolvedInitialFilter)
   const [statusFilter, setStatusFilter] = useState('')
-  const [dateFilter, setDateFilter] = useState(defaultFilter === 'today' ? getTodayISO() : '')
+  const [dateFilter, setDateFilter] = useState(
+    resolvedInitialFilter === 'today' ? getTodayISO() : '',
+  )
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
@@ -57,9 +65,11 @@ export function PatientListPage({
   const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, name: '' })
 
   const skipAutoFetchRef = useRef(false)
+  const requestGenRef = useRef(0)
 
   const fetchPatients = useCallback(
     async ({ silent = false, search: searchOverride, page: pageOverride } = {}) => {
+      const generation = ++requestGenRef.current
       if (!silent) setLoading(true)
       const appliedSearch = searchOverride !== undefined ? searchOverride : search
       const appliedPage = pageOverride !== undefined ? pageOverride : page
@@ -70,11 +80,13 @@ export function PatientListPage({
         if (dateFilter) params.date = dateFilter
 
         const { data: res } = await patientService.list(params)
+        if (generation !== requestGenRef.current) return false
         setPatients(res.data.results)
         setPagination(res.data.pagination)
         setLoadError('')
         return true
       } catch (err) {
+        if (generation !== requestGenRef.current) return false
         const message = err.response?.data?.message || err.message
         if (!silent) {
           setLoadError(message)
@@ -82,10 +94,10 @@ export function PatientListPage({
         }
         return false
       } finally {
-        if (!silent) setLoading(false)
+        if (generation === requestGenRef.current && !silent) setLoading(false)
       }
     },
-    [page, search, filter, statusFilter, dateFilter, showError]
+    [page, search, filter, statusFilter, dateFilter, showError],
   )
 
   useEffect(() => {
@@ -109,7 +121,11 @@ export function PatientListPage({
     if (nextFilter === 'today') {
       const today = getTodayISO()
       setDateFilter((current) => (current === today ? current : today))
-    } else if (nextFilter === 'waiting' || nextFilter === 'completed' || nextFilter === 'admission_required') {
+    } else if (
+      nextFilter === 'waiting' ||
+      nextFilter === 'completed' ||
+      nextFilter === 'admission_required'
+    ) {
       setStatusFilter((current) => (current === '' ? current : ''))
     } else {
       setDateFilter((current) => (current === '' ? current : ''))

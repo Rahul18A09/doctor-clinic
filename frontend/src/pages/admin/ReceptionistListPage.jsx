@@ -37,9 +37,11 @@ export function ReceptionistListPage() {
   })
 
   const skipAutoFetchRef = useRef(false)
+  const requestGenRef = useRef(0)
 
   const fetchReceptionists = useCallback(
     async ({ silent = false, search: searchOverride, page: pageOverride } = {}) => {
+      const generation = ++requestGenRef.current
       if (!silent) setLoading(true)
       const appliedSearch = searchOverride !== undefined ? searchOverride : search
       const appliedPage = pageOverride !== undefined ? pageOverride : page
@@ -49,11 +51,13 @@ export function ReceptionistListPage() {
           page_size: 10,
           search: appliedSearch,
         })
+        if (generation !== requestGenRef.current) return false
         setReceptionists(res.data.results)
         setPagination(res.data.pagination)
         setLoadError('')
         return true
       } catch (err) {
+        if (generation !== requestGenRef.current) return false
         const message = err.response?.data?.message || err.message
         if (!silent) {
           setLoadError(message)
@@ -61,10 +65,10 @@ export function ReceptionistListPage() {
         }
         return false
       } finally {
-        if (!silent) setLoading(false)
+        if (generation === requestGenRef.current && !silent) setLoading(false)
       }
     },
-    [page, search, showError]
+    [page, search, showError],
   )
 
   useEffect(() => {

@@ -46,6 +46,8 @@ export function NotificationProvider({ children }) {
   const [recent, setRecent] = useState([])
   const [recentLoading, setRecentLoading] = useState(false)
   const [inboxRevision, setInboxRevision] = useState(0)
+  /** Bumped for clinic-activity types that affect dashboards / beds (not every inbox event). */
+  const [activityRevision, setActivityRevision] = useState(0)
   const mountedRef = useRef(true)
   const intervalRef = useRef(null)
   const unreadGenRef = useRef(0)
@@ -140,6 +142,20 @@ export function NotificationProvider({ children }) {
     setInboxRevision((value) => value + 1)
   }, [])
 
+  const bumpActivityRevision = useCallback((type) => {
+    const normalized = String(type || '').toLowerCase()
+    // system-only staff chatter should not refetch dashboards; bed maintenance is "staff".
+    if (
+      normalized === 'patient' ||
+      normalized === 'consultation' ||
+      normalized === 'queue' ||
+      normalized === 'token' ||
+      normalized === 'staff'
+    ) {
+      setActivityRevision((value) => value + 1)
+    }
+  }, [])
+
   const applyCreatedNotification = useCallback((notification) => {
     if (!notification?.id || seenIdsRef.current.has(notification.id)) {
       return
@@ -153,7 +169,8 @@ export function NotificationProvider({ children }) {
       setUnreadCount((count) => count + 1)
     }
     bumpInboxRevision()
-  }, [bumpInboxRevision])
+    bumpActivityRevision(notification.type)
+  }, [bumpActivityRevision, bumpInboxRevision])
 
   const applyRemovedNotification = useCallback((id) => {
     if (!id) return
@@ -302,9 +319,9 @@ export function NotificationProvider({ children }) {
         ),
       )
       setUnreadCount((count) => Math.max(0, count - 1))
-      void refreshUnreadCount()
+      // Optimistic local count is enough; poll/socket resync corrects drift.
     },
-    [refreshUnreadCount],
+    [],
   )
 
   const markAllRead = useCallback(async () => {
@@ -312,27 +329,22 @@ export function NotificationProvider({ children }) {
     socketBufferRef.current.clear()
     setRecent((prev) => prev.map((item) => ({ ...item, is_read: true })))
     setUnreadCount(0)
-    void refreshUnreadCount()
-  }, [refreshUnreadCount])
+  }, [])
 
-  const deleteNotification = useCallback(
-    async (id) => {
-      await notificationService.delete(id)
-      seenIdsRef.current.delete(id)
-      socketBufferRef.current.delete(id)
-      let wasUnread = false
-      setRecent((prev) => {
-        const existing = prev.find((item) => item.id === id)
-        wasUnread = Boolean(existing && !existing.is_read)
-        return prev.filter((item) => item.id !== id)
-      })
-      if (wasUnread) {
-        setUnreadCount((count) => Math.max(0, count - 1))
-      }
-      void refreshUnreadCount()
-    },
-    [refreshUnreadCount],
-  )
+  const deleteNotification = useCallback(async (id) => {
+    await notificationService.delete(id)
+    seenIdsRef.current.delete(id)
+    socketBufferRef.current.delete(id)
+    let wasUnread = false
+    setRecent((prev) => {
+      const existing = prev.find((item) => item.id === id)
+      wasUnread = Boolean(existing && !existing.is_read)
+      return prev.filter((item) => item.id !== id)
+    })
+    if (wasUnread) {
+      setUnreadCount((count) => Math.max(0, count - 1))
+    }
+  }, [])
 
   const value = useMemo(
     () => ({
@@ -340,6 +352,7 @@ export function NotificationProvider({ children }) {
       recent,
       loading: recentLoading,
       inboxRevision,
+      activityRevision,
       refresh,
       refreshUnreadCount,
       fetchRecent,
@@ -352,6 +365,7 @@ export function NotificationProvider({ children }) {
       recent,
       recentLoading,
       inboxRevision,
+      activityRevision,
       refresh,
       refreshUnreadCount,
       fetchRecent,
