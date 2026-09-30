@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react'
 import { bedService, getBedsErrorMessage, roomService } from '@/api/beds'
 import { Button, Modal, ModalSpinner } from '@/components/ui'
