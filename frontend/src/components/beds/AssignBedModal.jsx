@@ -1,3 +1,4 @@
+
 import { useState } from 'react'
 import { patientService } from '@/api/patients'
 import { getBedsErrorMessage } from '@/api/beds'
